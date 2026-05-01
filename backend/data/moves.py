@@ -1,0 +1,40 @@
+"""Move catalog used by the first project deliverable."""
+
+from backend.data.models import MoveData
+
+
+MOVEDEX: dict[str, MoveData] = {
+    "scratch": MoveData("scratch", "Scratch", 40, "Zarpazo rapido de corto alcance."),
+    "tackle": MoveData("tackle", "Tackle", 40, "Golpe directo y confiable."),
+    "headbutt": MoveData("headbutt", "Headbutt", 60, "Embestida de contacto."),
+    "quickattack": MoveData("quickattack", "Quick Attack", 40, "Ataque veloz y ligero."),
+    "slash": MoveData("slash", "Slash", 70, "Corte agresivo."),
+    "vinewhip": MoveData("vinewhip", "Vine Whip", 45, "Latigazo de enredaderas."),
+    "razorleaf": MoveData("razorleaf", "Razor Leaf", 55, "Hojas filosas lanzadas al rival."),
+    "seedbomb": MoveData("seedbomb", "Seed Bomb", 80, "Impacto fuerte de semillas."),
+    "solarbeam": MoveData("solarbeam", "Solar Beam", 90, "Rayo concentrado de energia."),
+    "watergun": MoveData("watergun", "Water Gun", 40, "Chorro de agua a presion."),
+    "bubblebeam": MoveData("bubblebeam", "Bubble Beam", 65, "Rafaga de burbujas."),
+    "aquatail": MoveData("aquatail", "Aqua Tail", 80, "Coletazo reforzado con agua."),
+    "hydropump": MoveData("hydropump", "Hydro Pump", 95, "Gran descarga de agua."),
+    "ember": MoveData("ember", "Ember", 40, "Pequena llamarada."),
+    "firefang": MoveData("firefang", "Fire Fang", 65, "Mordida envuelta en fuego."),
+    "flamethrower": MoveData("flamethrower", "Flamethrower", 85, "Lanzallamas constante."),
+    "heatwave": MoveData("heatwave", "Heat Wave", 90, "Ola de calor intensa."),
+    "thundershock": MoveData("thundershock", "Thunder Shock", 40, "Descarga electrica corta."),
+    "spark": MoveData("spark", "Spark", 65, "Ataque corporal electrificado."),
+    "thunderbolt": MoveData("thunderbolt", "Thunderbolt", 85, "Rayo electrico estable."),
+    "volttackle": MoveData("volttackle", "Volt Tackle", 95, "Embestida electrificada."),
+    "gust": MoveData("gust", "Gust", 40, "Rafaga de viento."),
+    "wingattack": MoveData("wingattack", "Wing Attack", 60, "Ataque con alas."),
+    "airslash": MoveData("airslash", "Air Slash", 80, "Cuchilla de aire."),
+    "hurricane": MoveData("hurricane", "Hurricane", 95, "Torbellino violento."),
+    "rockthrow": MoveData("rockthrow", "Rock Throw", 50, "Lanzamiento de rocas."),
+    "rockslide": MoveData("rockslide", "Rock Slide", 75, "Avalancha de rocas."),
+    "bulldoze": MoveData("bulldoze", "Bulldoze", 60, "Acometida terrestre."),
+    "earthquake": MoveData("earthquake", "Earthquake", 95, "Sacudida masiva del terreno."),
+    "bite": MoveData("bite", "Bite", 60, "Mordida potente."),
+    "confusion": MoveData("confusion", "Confusion", 55, "Impulso psiquico."),
+    "psybeam": MoveData("psybeam", "Psybeam", 70, "Rayo mental concentrado."),
+    "zenheadbutt": MoveData("zenheadbutt", "Zen Headbutt", 80, "Golpe psiquico frontal."),
+}

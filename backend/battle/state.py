@@ -1,0 +1,49 @@
+"""Battle state container and legal action generation."""
+
+from backend.battle.models import BattleAction, TeamState
+
+
+class BattleState:
+    def __init__(self, team1: TeamState, team2: TeamState, speed_penalty_factor: float = 0.15):
+        self.teams = [team1, team2]
+        self.turn_number = 1
+        self.speed_penalty_factor = speed_penalty_factor
+        self.log: list[str] = []
+
+    def team_of(self, player_index: int) -> TeamState:
+        return self.teams[player_index]
+
+    def opponent_of(self, player_index: int) -> TeamState:
+        return self.teams[1 - player_index]
+
+    def battle_over(self) -> bool:
+        return any(team.all_fainted() for team in self.teams)
+
+    def winner(self) -> str | None:
+        team1_fainted = self.teams[0].all_fainted()
+        team2_fainted = self.teams[1].all_fainted()
+        if team1_fainted and team2_fainted:
+            return "Empate"
+        if team2_fainted:
+            return self.teams[0].trainer_name
+        if team1_fainted:
+            return self.teams[1].trainer_name
+        return None
+
+    def get_legal_actions(self, player_index: int) -> list[BattleAction]:
+        team = self.team_of(player_index)
+        if team.all_fainted():
+            return []
+
+        actions: list[BattleAction] = []
+        if team.active_pokemon.is_fainted():
+            for switch_index, pokemon in team.available_switches():
+                actions.append(BattleAction("switch", switch_index, f"Cambiar a {pokemon.name}"))
+            return actions
+
+        for move_index, move in enumerate(team.active_pokemon.moves):
+            actions.append(BattleAction("move", move_index, f"Usar {move.name}"))
+
+        for switch_index, pokemon in team.available_switches():
+            actions.append(BattleAction("switch", switch_index, f"Cambiar a {pokemon.name}"))
+        return actions
