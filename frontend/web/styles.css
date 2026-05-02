@@ -188,6 +188,10 @@ body {
   position: relative;
   overflow: hidden;
   background-color: #f6fbff;
+  background-image: url("../assets/4325.png");
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: cover;
 }
 
 .battlefield::after {
@@ -216,7 +220,11 @@ body {
 
 .player-card {
   right: 28px;
-  bottom: 86px;
+  bottom: 10px;
+}
+
+.player-card .hp-row {
+  grid-template-columns: auto 1fr auto;
 }
 
 .status-topline {
@@ -274,8 +282,11 @@ body {
 .numeric-hp {
   display: flex;
   justify-content: flex-end;
-  margin-top: 8px;
-  font-size: 24px;
+  align-items: center;
+  margin-top: 0;
+  font-size: 20px;
+  line-height: 1;
+  white-space: nowrap;
 }
 
 .party-row {
@@ -314,8 +325,8 @@ body {
 }
 
 .enemy-sprite-wrapper {
-  top: 70px;
-  right: 138px;
+  top: 90px;
+  right: 180px;
 }
 
 .player-sprite-wrapper {
@@ -333,11 +344,11 @@ body {
 }
 
 .enemy-sprite {
-  width: clamp(80px, 12vw, 120px);
+  width: clamp(108px, 16vw, 150px);
 }
 
 .player-sprite {
-  width: clamp(172px, 24vw, 236px);
+  width: clamp(190px, 26vw, 260px);
 }
 
 .sprite-wrapper.attack {
