@@ -125,7 +125,7 @@ class BattleEngine:
             return
 
         move = attacker.moves[move_index]
-        damage = calculate_damage(attacker, defender, move, self.state.speed_penalty_factor)
+        damage = calculate_damage(attacker, defender, move)
         defender.hp = max(0, defender.hp - damage)
 
         self._call_ui_hook(

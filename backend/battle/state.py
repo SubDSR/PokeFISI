@@ -4,10 +4,9 @@ from backend.battle.models import BattleAction, TeamState
 
 
 class BattleState:
-    def __init__(self, team1: TeamState, team2: TeamState, speed_penalty_factor: float = 0.15):
+    def __init__(self, team1: TeamState, team2: TeamState):
         self.teams = [team1, team2]
         self.turn_number = 1
-        self.speed_penalty_factor = speed_penalty_factor
         self.log: list[str] = []
 
     def team_of(self, player_index: int) -> TeamState:
