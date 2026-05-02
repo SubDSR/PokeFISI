@@ -11,6 +11,7 @@
     winnerBanner: document.getElementById("winner-banner"),
     panelTitle: document.getElementById("panel-title"),
     panelSubtitle: document.getElementById("panel-subtitle"),
+    panelBack: document.getElementById("panel-back"),
     playerName: document.getElementById("player-name"),
     playerLevel: document.getElementById("player-level"),
     playerHpFill: document.getElementById("player-hp-fill"),
@@ -55,6 +56,8 @@
   };
 
   const POKEBALL_SPRITE = "https://play.pokemonshowdown.com/sprites/bwicons-pokeball-sheet.png";
+  const FRAME_DELAY_TURN = 1100;
+  const FRAME_DELAY_ACTION = 1500;
 
   function renderParty(container, party) {
     container.innerHTML = "";
@@ -70,12 +73,18 @@
   function setActionButtons(items, options) {
     const handlers = options.handlers || [];
     elements.panelTitle.textContent = options.title;
-    elements.panelSubtitle.textContent = options.subtitle;
+    elements.panelSubtitle.textContent = options.subtitle || "";
+    elements.panelSubtitle.classList.toggle("hidden", !options.subtitle);
+    elements.panelBack.onclick = null;
+    elements.panelBack.classList.toggle("hidden", !options.showBack);
+    if (options.showBack && options.onBack) {
+      elements.panelBack.onclick = options.onBack;
+    }
 
     elements.actionButtons.forEach((button, index) => {
       const item = items[index];
       button.onclick = null;
-      button.classList.remove("is-hidden");
+      button.classList.remove("is-hidden", "action-btn--fight", "action-btn--pokemon", "action-btn--command");
 
       if (!item) {
         button.textContent = "-";
@@ -89,6 +98,9 @@
       button.disabled = Boolean(item.disabled);
       button.classList.toggle("is-disabled", Boolean(item.disabled));
       button.classList.toggle("is-active", !item.disabled);
+      if (item.variant) {
+        button.classList.add(...item.variant.split(" "));
+      }
       if (!item.disabled && handlers[index]) {
         button.onclick = handlers[index];
       }
@@ -151,6 +163,8 @@
     elements.newGame.disabled = state.busy;
 
     if (state.mode === "ai-vs-ai") {
+      elements.toggle.classList.remove("hidden");
+      elements.next.classList.remove("hidden");
       const canAutoplay = !state.packet?.over && !state.busy;
       const canStep = !state.packet?.over && !state.busy;
       elements.toggle.disabled = !canAutoplay;
@@ -161,12 +175,10 @@
       return;
     }
 
-    const forcedSwitch = Boolean(state.packet?.currentState?.actionGroups?.forcedSwitch);
-    const hasSwitches = Boolean(state.packet?.currentState?.actionGroups?.switches?.length);
-    elements.toggle.textContent = state.menu === "switch" ? "MOVES" : "SWITCH";
-    elements.toggle.disabled = state.busy || state.packet?.over || forcedSwitch || !hasSwitches;
+    elements.toggle.classList.add("hidden");
+    elements.next.classList.add("hidden");
+    elements.toggle.disabled = true;
     elements.next.disabled = true;
-    elements.next.textContent = "LOCK";
     elements.statusPill.textContent = "Modo jugador";
   }
 
@@ -184,7 +196,7 @@
   function renderActionPanel() {
     if (!state.packet) {
       setActionButtons([], {
-        title: "Opciones",
+        title: "Comandos",
         subtitle: "Selecciona un modo para comenzar",
       });
       return;
@@ -208,6 +220,7 @@
 
     const actionGroups = state.packet.currentState.actionGroups;
     const isForcedSwitch = actionGroups.forcedSwitch;
+    const hasSwitches = Boolean(actionGroups.switches.length);
 
     if (state.packet.over) {
       setActionButtons(
@@ -226,23 +239,59 @@
 
     if (isForcedSwitch) {
       state.menu = "switch";
+    } else if (state.menu === "switch" && !hasSwitches) {
+      state.menu = "root";
+    } else if (state.menu !== "moves" && state.menu !== "switch") {
+      state.menu = "root";
+    }
+
+    if (state.menu === "root") {
+      setActionButtons(
+        [
+          { label: "Luchar", disabled: state.busy, variant: "action-btn--fight action-btn--command" },
+          { label: "Pokemon", disabled: state.busy || !hasSwitches, variant: "action-btn--pokemon action-btn--command" },
+        ],
+        {
+          title: "Comandos",
+          subtitle: "Selecciona Lucha o Pokemon",
+          handlers: [
+            () => {
+              state.menu = "moves";
+              renderActionPanel();
+            },
+            () => {
+              state.menu = "switch";
+              renderActionPanel();
+            },
+          ],
+        }
+      );
+      return;
     }
 
     if (state.menu === "switch") {
       const items = actionGroups.switches.map((entry) => ({ label: entry.label, disabled: state.busy }));
       const handlers = actionGroups.switches.map((entry) => () => submitHumanAction(entry));
       setActionButtons(items.slice(0, 4), {
-        title: "Cambio",
-        subtitle: isForcedSwitch ? "Debes enviar un nuevo Pokemon" : "Elige a quien cambiar",
+        title: "Pokemon",
         handlers,
+        showBack: !isForcedSwitch,
+        onBack: () => {
+          state.menu = "root";
+          renderActionPanel();
+        },
       });
       return;
     }
 
     setActionButtons(actionGroups.moves.map((move) => ({ label: move.label, disabled: state.busy })).slice(0, 4), {
-        title: "Movimientos",
-        subtitle: "Elige uno de tus cuatro ataques",
+        title: "Lucha",
         handlers: actionGroups.moves.map((move) => () => submitHumanAction(move)),
+        showBack: true,
+        onBack: () => {
+          state.menu = "root";
+          renderActionPanel();
+        },
       });
   }
 
@@ -277,7 +326,7 @@
       renderView(frame.state, frame.animation);
       updateWinnerBanner();
       renderActionPanel();
-      window.setTimeout(runNext, frame.type === "turn" ? 700 : 950);
+      window.setTimeout(runNext, frame.type === "turn" ? FRAME_DELAY_TURN : FRAME_DELAY_ACTION);
     };
     runNext();
   }
@@ -298,7 +347,7 @@
 
   async function startBattle(mode) {
     state.autoplay = false;
-    state.menu = "moves";
+    state.menu = "root";
     elements.modeScreen.classList.add("hidden");
     elements.message.textContent = "Preparando batalla...";
     try {
@@ -308,6 +357,7 @@
       });
       state.sessionId = packet.sessionId;
       state.mode = packet.mode;
+      state.menu = packet.currentState.actionGroups.forcedSwitch ? "switch" : "root";
       applyPacket(packet);
     } catch (error) {
       elements.modeScreen.classList.remove("hidden");
@@ -343,7 +393,7 @@
         actionType: action.actionType,
         index: action.index,
       });
-      state.menu = packet.currentState.actionGroups.forcedSwitch ? "switch" : "moves";
+      state.menu = packet.currentState.actionGroups.forcedSwitch ? "switch" : "root";
       applyPacket(packet);
     } catch (error) {
       state.busy = false;
@@ -359,7 +409,7 @@
     state.sessionId = null;
     state.mode = null;
     state.packet = null;
-    state.menu = "moves";
+    state.menu = "root";
     elements.modeScreen.classList.remove("hidden");
     elements.winnerBanner.classList.add("hidden");
     elements.message.textContent = "Selecciona un modo para comenzar.";
@@ -373,16 +423,6 @@
   elements.next.addEventListener("click", requestAiStep);
   elements.toggle.addEventListener("click", () => {
     if (!state.packet || state.packet.over || state.busy) {
-      return;
-    }
-
-    if (state.mode === "human-vs-ai") {
-      if (state.packet.currentState.actionGroups.forcedSwitch || !state.packet.currentState.actionGroups.switches.length) {
-        return;
-      }
-      state.menu = state.menu === "switch" ? "moves" : "switch";
-      updateTopControls();
-      renderActionPanel();
       return;
     }
 

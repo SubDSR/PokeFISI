@@ -314,13 +314,13 @@ body {
 }
 
 .enemy-sprite-wrapper {
-  top: 118px;
+  top: 70px;
   right: 138px;
 }
 
 .player-sprite-wrapper {
-  left: 86px;
-  bottom: 134px;
+  left: 95px;
+  bottom: 10px;
 }
 
 .battle-sprite {
@@ -333,7 +333,7 @@ body {
 }
 
 .enemy-sprite {
-  width: clamp(108px, 16vw, 150px);
+  width: clamp(80px, 12vw, 120px);
 }
 
 .player-sprite {
@@ -372,12 +372,31 @@ body {
   background: transparent;
 }
 
+.action-panel-topline {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+
 .action-panel-header {
   display: flex;
   flex-direction: column;
   gap: 6px;
   color: #f5fbff;
   text-shadow: 0 1px 0 rgba(9, 30, 44, 0.45);
+}
+
+.panel-back {
+  font-family: "Press Start 2P", monospace;
+  font-size: 10px;
+  border: 3px solid #e9effe;
+  border-radius: 999px;
+  padding: 10px 12px;
+  background: rgba(18, 48, 94, 0.92);
+  color: #ffffff;
+  cursor: pointer;
+  flex-shrink: 0;
 }
 
 .action-panel-header span:first-child {
@@ -440,8 +459,40 @@ body {
   transition: transform 0.12s ease, filter 0.12s ease;
 }
 
+.action-btn--command {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 82px;
+  padding: 14px 18px;
+  text-align: center;
+  text-shadow: 1px 1px 0 rgba(0, 0, 0, 0.24);
+}
+
+.action-btn--fight {
+  border-color: #d55a6b;
+  background: linear-gradient(180deg, #ffd1d4 0%, #ffa4ac 58%, #ffc1c4 100%);
+  color: #fff8f2;
+  box-shadow: 0 6px 0 rgba(169, 75, 92, 0.26), inset 0 0 0 3px #ffeef0;
+}
+
+.action-btn--pokemon {
+  border-color: #586740;
+  background: linear-gradient(180deg, #8da16d 0%, #687f4f 58%, #839861 100%);
+  color: #f3f7dd;
+  box-shadow: 0 6px 0 rgba(69, 83, 52, 0.26), inset 0 0 0 3px #dfe8c8;
+}
+
 .action-btn.is-active {
   background: linear-gradient(180deg, #fff6b3 0%, var(--action-active) 100%);
+}
+
+.action-btn.action-btn--fight.is-active {
+  background: linear-gradient(180deg, #ffd1d4 0%, #ffa4ac 58%, #ffc1c4 100%);
+}
+
+.action-btn.action-btn--pokemon.is-active {
+  background: linear-gradient(180deg, #8da16d 0%, #687f4f 58%, #839861 100%);
 }
 
 .action-btn.is-disabled {
@@ -495,6 +546,15 @@ body {
   .message-box {
     border-right: 0;
     border-bottom: 6px solid #f4f8ff;
+  }
+
+  .action-panel-topline {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .panel-back {
+    align-self: flex-start;
   }
 
   .status-card {
