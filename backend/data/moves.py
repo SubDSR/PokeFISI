@@ -1,5 +1,3 @@
-"""Move catalog used by the first project deliverable."""
-
 from backend.data.models import MoveData
 
 

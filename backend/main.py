@@ -20,7 +20,11 @@ def create_agent(agent_name: str, rng: random.Random):
 def build_ui(args):
     if args.ui == "replay":
         return ReplayBattleUI(output_path=Path(args.replay_output))
-    return ConsoleBattleUI(verbose=not args.quiet)
+    return ConsoleBattleUI(
+        verbose=not args.quiet,
+        message_delay=args.message_delay,
+        decision_delay=args.decision_delay,
+    )
 
 
 def run_single_battle(args) -> None:
@@ -70,6 +74,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--battles", type=int, default=20)
     parser.add_argument("--seed", type=int, default=7)
     parser.add_argument("--quiet", action="store_true")
+    parser.add_argument("--message-delay", type=float, default=0.35)
+    parser.add_argument("--decision-delay", type=float, default=1.0)
     parser.add_argument("--replay-output", default="frontend/web/replay_data.js")
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=8000)

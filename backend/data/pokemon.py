@@ -1,5 +1,3 @@
-"""Pokemon roster with at least eight learnable moves per species."""
-
 from backend.data.models import PokemonSpecies
 
 

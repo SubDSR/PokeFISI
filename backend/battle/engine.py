@@ -58,8 +58,20 @@ class BattleEngine:
 
             chosen_action = self.agents[player_index].choose_action(self.state, player_index, legal_actions)
             if chosen_action.action_type != "switch":
-                chosen_action = legal_actions[0]
-            self._execute_action(player_index, chosen_action, forced=True)
+                final_action = legal_actions[0]
+            else:
+                final_action = chosen_action
+            self._call_ui_hook(
+                "on_action_selection",
+                self.state,
+                player_index,
+                legal_actions,
+                chosen_action,
+                final_action,
+                getattr(self.agents[player_index], "last_choice_details", None),
+                True,
+            )
+            self._execute_action(player_index, final_action, forced=True)
 
     def _select_action(self, player_index: int) -> BattleAction:
         legal_actions = self.state.get_legal_actions(player_index)
@@ -67,9 +79,18 @@ class BattleEngine:
             return BattleAction("pass", -1, "Sin acciones")
 
         chosen_action = self.agents[player_index].choose_action(self.state, player_index, legal_actions)
-        if chosen_action not in legal_actions:
-            return legal_actions[0]
-        return chosen_action
+        final_action = chosen_action if chosen_action in legal_actions else legal_actions[0]
+        self._call_ui_hook(
+            "on_action_selection",
+            self.state,
+            player_index,
+            legal_actions,
+            chosen_action,
+            final_action,
+            getattr(self.agents[player_index], "last_choice_details", None),
+            False,
+        )
+        return final_action
 
     def _sort_actions(self, actions: list[BattleAction]) -> list[tuple[int, BattleAction]]:
         orderable_actions = list(enumerate(actions))
