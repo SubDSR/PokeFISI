@@ -88,11 +88,21 @@ def build_view_state(
     state: BattleState,
     message: str,
     player_actions: list[BattleAction] | None = None,
+    panel: dict | None = None,
 ) -> dict:
     player_team = state.team_of(0)
     enemy_team = state.team_of(1)
     actions = player_actions if player_actions is not None else state.get_legal_actions(0)
     forced_switch = bool(actions) and all(action.action_type == "switch" for action in actions)
+
+    panel_state = {
+        "menu": "switch" if forced_switch else "root",
+        "selectedGroup": None,
+        "selectedIndex": None,
+        "locked": False,
+    }
+    if panel:
+        panel_state.update(panel)
 
     return {
         "turn": state.turn_number,
@@ -109,4 +119,5 @@ def build_view_state(
         },
         "actions": _serialize_move_slots(actions),
         "actionGroups": _serialize_action_groups(actions, forced_switch),
+        "panel": panel_state,
     }

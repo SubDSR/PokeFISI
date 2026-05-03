@@ -506,6 +506,17 @@ body {
   background: linear-gradient(180deg, #8da16d 0%, #687f4f 58%, #839861 100%);
 }
 
+.action-btn.is-selected {
+  transform: translateY(-2px);
+  filter: brightness(1.08);
+  outline: 4px solid rgba(255, 255, 255, 0.92);
+  outline-offset: -6px;
+}
+
+.action-btn.is-disabled.is-selected {
+  opacity: 1;
+}
+
 .action-btn.is-disabled {
   opacity: 0.45;
 }

@@ -12,8 +12,10 @@ from backend.ui.view_state import build_view_state
 
 
 class SessionFrameCollector:
-    def __init__(self):
+    def __init__(self, locked_panel: bool = False):
         self.frames: list[dict] = []
+        self.locked_panel = locked_panel
+        self.current_panel: dict | None = {"locked": True} if locked_panel else None
 
     def clear(self) -> None:
         self.frames.clear()
@@ -25,7 +27,12 @@ class SessionFrameCollector:
         message: str,
         animation: dict | None = None,
         player_actions: list[BattleAction] | None = None,
+        panel: dict | None = None,
     ) -> None:
+        if panel is not None:
+            self.current_panel = dict(panel)
+        elif self.locked_panel and self.current_panel is not None:
+            panel = dict(self.current_panel)
         self.frames.append(
             {
                 "type": frame_type,
@@ -34,6 +41,7 @@ class SessionFrameCollector:
                     state,
                     message=message,
                     player_actions=player_actions,
+                    panel=panel,
                 ),
             }
         )
@@ -96,7 +104,7 @@ class BattleSession:
         self.mode = mode
         self.seed = seed if seed is not None else random.randrange(1, 10_000_000)
         self.rng = random.Random(self.seed)
-        self.collector = SessionFrameCollector()
+        self.collector = SessionFrameCollector(locked_panel=mode == "ai-vs-ai")
 
         player_name = "Jugador" if mode == "human-vs-ai" else "IA 1"
         team1 = build_random_team(player_name, team_size, self.rng)
@@ -111,12 +119,14 @@ class BattleSession:
             self.state,
             frame_type="intro",
             message=f"{self.state.team_of(0).trainer_name} reta a {self.state.team_of(1).trainer_name}.",
+            panel=self._panel_state_for_current_turn(),
         )
         self.collector.add_frame(
             self.state,
             frame_type="prompt",
             message=self._build_prompt(),
             player_actions=self._player_actions_for_view(),
+            panel=self._panel_state_for_current_turn(),
         )
         return self._build_response(self.collector.frames)
 
@@ -148,6 +158,7 @@ class BattleSession:
                     frame_type="prompt",
                     message=self._build_prompt(),
                     player_actions=self._player_actions_for_view(),
+                    panel=self._panel_state_for_current_turn(),
                 )
             else:
                 self._append_result_frame()
@@ -165,11 +176,18 @@ class BattleSession:
         if self.mode == "human-vs-ai" and human_action is None:
             raise ValueError("Se requiere una accion humana para este turno.")
 
-        self.collector.add_frame(self.state, frame_type="turn", message=f"Turno {self.state.turn_number}")
+        self.collector.add_frame(
+            self.state,
+            frame_type="turn",
+            message=f"Turno {self.state.turn_number}",
+            panel=self._panel_state_for_current_turn(),
+        )
         actions = [
             human_action if human_action is not None else self._select_agent_action(0),
             self._select_agent_action(1),
         ]
+        if self.mode == "ai-vs-ai":
+            self._append_ai_choice_frames(actions[0])
         ordered_actions = self.engine._sort_actions(actions)
         for player_index, action in ordered_actions:
             if self.state.battle_over():
@@ -182,12 +200,13 @@ class BattleSession:
         if self.state.battle_over():
             self._append_result_frame()
         else:
-            self.collector.add_frame(
-                self.state,
-                frame_type="prompt",
-                message=self._build_prompt(),
-                player_actions=self._player_actions_for_view(),
-            )
+                self.collector.add_frame(
+                    self.state,
+                    frame_type="prompt",
+                    message=self._build_prompt(),
+                    player_actions=self._player_actions_for_view(),
+                    panel=self._panel_state_for_current_turn(),
+                )
         return self._build_response(self.collector.frames)
 
     def _resolve_ai_forced_switches(self) -> None:
@@ -224,7 +243,7 @@ class BattleSession:
         return RandomAgent(name="IA 1", rng=self.rng)
 
     def _player_actions_for_view(self) -> list[BattleAction]:
-        if self.mode != "human-vs-ai" or self.state.battle_over():
+        if self.state.battle_over():
             return []
         return self.state.get_legal_actions(0)
 
@@ -244,6 +263,48 @@ class BattleSession:
             return "Tu Pokemon cayo. Elige a quien enviar al combate."
 
         return "Elige una accion: atacar o cambiar de Pokemon."
+
+    def _panel_state_for_current_turn(self) -> dict:
+        actions = self._player_actions_for_view()
+        forced_switch = bool(actions) and all(action.action_type == "switch" for action in actions)
+        return {
+            "menu": "switch" if forced_switch else "root",
+            "selectedGroup": None,
+            "selectedIndex": None,
+            "locked": self.mode == "ai-vs-ai",
+        }
+
+    def _append_ai_choice_frames(self, chosen_action: BattleAction) -> None:
+        legal_actions = self.state.get_legal_actions(0)
+        if not legal_actions:
+            return
+
+        chosen_group = "moves" if chosen_action.action_type == "move" else "switch"
+        trainer_name = self.state.team_of(0).trainer_name
+        self.collector.add_frame(
+            self.state,
+            frame_type="choice",
+            message=f"{trainer_name} evalua si usar Lucha o Pokemon.",
+            player_actions=legal_actions,
+            panel={
+                "menu": "root",
+                "selectedGroup": chosen_group,
+                "selectedIndex": None,
+                "locked": True,
+            },
+        )
+        self.collector.add_frame(
+            self.state,
+            frame_type="choice",
+            message=f"{trainer_name} elige {chosen_action.label}.",
+            player_actions=legal_actions,
+            panel={
+                "menu": chosen_group,
+                "selectedGroup": chosen_group,
+                "selectedIndex": chosen_action.index,
+                "locked": True,
+            },
+        )
 
     def _append_result_frame(self) -> None:
         winner = self.state.winner() or "Empate"
@@ -274,6 +335,7 @@ class BattleSession:
             self.state,
             message=self._build_prompt(),
             player_actions=self._player_actions_for_view(),
+            panel=self._panel_state_for_current_turn(),
         )
         return {
             "sessionId": self.session_id,

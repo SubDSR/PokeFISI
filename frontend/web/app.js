@@ -50,6 +50,7 @@
     sessionId: null,
     mode: null,
     packet: null,
+    visibleState: null,
     autoplay: false,
     busy: false,
     menu: "root",
@@ -58,6 +59,16 @@
   const POKEBALL_SPRITE = "https://play.pokemonshowdown.com/sprites/bwicons-pokeball-sheet.png";
   const FRAME_DELAY_TURN = 1100;
   const FRAME_DELAY_ACTION = 1500;
+  const AI_FRAME_DELAYS = {
+    turn: 1800,
+    choice: 2200,
+    attack: 2400,
+    switch: 2400,
+    faint: 2400,
+    result: 2600,
+    prompt: 1800,
+    default: 2200,
+  };
 
   function renderParty(container, party) {
     container.innerHTML = "";
@@ -72,6 +83,7 @@
 
   function setActionButtons(items, options) {
     const handlers = options.handlers || [];
+    const locked = Boolean(options.locked);
     elements.panelTitle.textContent = options.title;
     elements.panelSubtitle.textContent = options.subtitle || "";
     elements.panelSubtitle.classList.toggle("hidden", !options.subtitle);
@@ -84,7 +96,7 @@
     elements.actionButtons.forEach((button, index) => {
       const item = items[index];
       button.onclick = null;
-      button.classList.remove("is-hidden", "action-btn--fight", "action-btn--pokemon", "action-btn--command");
+      button.classList.remove("is-hidden", "action-btn--fight", "action-btn--pokemon", "action-btn--command", "is-selected");
 
       if (!item) {
         button.textContent = "-";
@@ -94,17 +106,31 @@
         return;
       }
 
+      const disabled = Boolean(item.disabled);
       button.textContent = item.label.toUpperCase();
-      button.disabled = Boolean(item.disabled);
-      button.classList.toggle("is-disabled", Boolean(item.disabled));
-      button.classList.toggle("is-active", !item.disabled);
+      button.disabled = disabled;
+      button.classList.toggle("is-disabled", disabled);
+      button.classList.toggle("is-active", !disabled || Boolean(item.selected));
+      button.classList.toggle("is-selected", Boolean(item.selected));
       if (item.variant) {
         button.classList.add(...item.variant.split(" "));
       }
-      if (!item.disabled && handlers[index]) {
+      if (!disabled && !locked && handlers[index]) {
         button.onclick = handlers[index];
       }
     });
+  }
+
+  function getVisibleViewState() {
+    return state.visibleState || state.packet?.currentState || null;
+  }
+
+  function getFrameDelay(frame) {
+    if (state.mode !== "ai-vs-ai") {
+      return frame.type === "turn" ? FRAME_DELAY_TURN : FRAME_DELAY_ACTION;
+    }
+
+    return AI_FRAME_DELAYS[frame.type] || AI_FRAME_DELAYS.default;
   }
 
   function animateFrame(frame) {
@@ -193,8 +219,9 @@
     elements.winnerBanner.classList.remove("hidden");
   }
 
-  function renderActionPanel() {
-    if (!state.packet) {
+  function renderActionPanel(viewState) {
+    const currentView = viewState || getVisibleViewState();
+    if (!state.packet || !currentView) {
       setActionButtons([], {
         title: "Comandos",
         subtitle: "Selecciona un modo para comenzar",
@@ -202,25 +229,11 @@
       return;
     }
 
-    if (state.mode === "ai-vs-ai") {
-      setActionButtons(
-        [
-          { label: "Auto", disabled: true },
-          { label: "Next", disabled: true },
-          { label: "IA 1", disabled: true },
-          { label: "IA 2", disabled: true },
-        ],
-        {
-          title: "Observador",
-          subtitle: state.packet.over ? "La batalla ya termino" : "Usa AUTO o NEXT para avanzar",
-        }
-      );
-      return;
-    }
-
-    const actionGroups = state.packet.currentState.actionGroups;
+    const actionGroups = currentView.actionGroups;
+    const panel = currentView.panel || {};
     const isForcedSwitch = actionGroups.forcedSwitch;
     const hasSwitches = Boolean(actionGroups.switches.length);
+    const lockedPanel = Boolean(panel.locked);
 
     if (state.packet.over) {
       setActionButtons(
@@ -237,23 +250,38 @@
       return;
     }
 
-    if (isForcedSwitch) {
-      state.menu = "switch";
-    } else if (state.menu === "switch" && !hasSwitches) {
-      state.menu = "root";
-    } else if (state.menu !== "moves" && state.menu !== "switch") {
-      state.menu = "root";
+    let activeMenu = panel.menu || (isForcedSwitch ? "switch" : "root");
+    if (!lockedPanel) {
+      if (isForcedSwitch) {
+        state.menu = "switch";
+      } else if (state.menu === "switch" && !hasSwitches) {
+        state.menu = "root";
+      } else if (state.menu !== "moves" && state.menu !== "switch") {
+        state.menu = "root";
+      }
+      activeMenu = state.menu;
     }
 
-    if (state.menu === "root") {
+    if (activeMenu === "root") {
       setActionButtons(
         [
-          { label: "Luchar", disabled: state.busy, variant: "action-btn--fight action-btn--command" },
-          { label: "Pokemon", disabled: state.busy || !hasSwitches, variant: "action-btn--pokemon action-btn--command" },
+          {
+            label: "Luchar",
+            disabled: !lockedPanel && state.busy,
+            selected: panel.selectedGroup === "moves",
+            variant: "action-btn--fight action-btn--command",
+          },
+          {
+            label: "Pokemon",
+            disabled: (!lockedPanel && state.busy) || !hasSwitches,
+            selected: panel.selectedGroup === "switch",
+            variant: "action-btn--pokemon action-btn--command",
+          },
         ],
         {
           title: "Comandos",
-          subtitle: "Selecciona Lucha o Pokemon",
+          subtitle: lockedPanel ? "La IA decide entre Lucha o Pokemon" : "Selecciona Lucha o Pokemon",
+          locked: lockedPanel,
           handlers: [
             () => {
               state.menu = "moves";
@@ -269,13 +297,19 @@
       return;
     }
 
-    if (state.menu === "switch") {
-      const items = actionGroups.switches.map((entry) => ({ label: entry.label, disabled: state.busy }));
+    if (activeMenu === "switch") {
+      const items = actionGroups.switches.map((entry) => ({
+        label: entry.label,
+        disabled: !lockedPanel && state.busy,
+        selected: panel.selectedIndex === entry.index,
+      }));
       const handlers = actionGroups.switches.map((entry) => () => submitHumanAction(entry));
       setActionButtons(items.slice(0, 4), {
         title: "Pokemon",
+        subtitle: lockedPanel ? "La IA elige un cambio aleatorio" : "Selecciona un Pokemon",
         handlers,
-        showBack: !isForcedSwitch,
+        locked: lockedPanel,
+        showBack: !isForcedSwitch && !lockedPanel,
         onBack: () => {
           state.menu = "root";
           renderActionPanel();
@@ -284,10 +318,16 @@
       return;
     }
 
-    setActionButtons(actionGroups.moves.map((move) => ({ label: move.label, disabled: state.busy })).slice(0, 4), {
+    setActionButtons(actionGroups.moves.map((move) => ({
+        label: move.label,
+        disabled: !lockedPanel && state.busy,
+        selected: panel.selectedIndex === move.index,
+      })).slice(0, 4), {
         title: "Lucha",
+        subtitle: lockedPanel ? "La IA elige un movimiento aleatorio" : "Selecciona un movimiento",
         handlers: actionGroups.moves.map((move) => () => submitHumanAction(move)),
-        showBack: true,
+        locked: lockedPanel,
+        showBack: !lockedPanel,
         onBack: () => {
           state.menu = "root";
           renderActionPanel();
@@ -297,10 +337,11 @@
 
   function renderPacket(packet) {
     state.packet = packet;
+    state.visibleState = packet.currentState;
     renderView(packet.currentState, { type: "idle" });
     updateTopControls();
     updateWinnerBanner();
-    renderActionPanel();
+    renderActionPanel(packet.currentState);
   }
 
   function playFrames(frames) {
@@ -323,10 +364,11 @@
         return;
       }
 
+      state.visibleState = frame.state;
       renderView(frame.state, frame.animation);
       updateWinnerBanner();
-      renderActionPanel();
-      window.setTimeout(runNext, frame.type === "turn" ? FRAME_DELAY_TURN : FRAME_DELAY_ACTION);
+      renderActionPanel(frame.state);
+      window.setTimeout(runNext, getFrameDelay(frame));
     };
     runNext();
   }
@@ -409,6 +451,7 @@
     state.sessionId = null;
     state.mode = null;
     state.packet = null;
+    state.visibleState = null;
     state.menu = "root";
     elements.modeScreen.classList.remove("hidden");
     elements.winnerBanner.classList.add("hidden");
