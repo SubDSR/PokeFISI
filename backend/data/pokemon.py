@@ -18,6 +18,7 @@ POKEDEX: dict[str, PokemonSpecies] = {
         attack=62,
         defense=68,
         speed=45,
+        pokemon_type="grass/poison",
         move_ids=[
             "tackle",
             "headbutt",
@@ -39,6 +40,7 @@ POKEDEX: dict[str, PokemonSpecies] = {
         attack=70,
         defense=55,
         speed=65,
+        pokemon_type="fire",
         move_ids=[
             "scratch",
             "ember",
@@ -60,6 +62,7 @@ POKEDEX: dict[str, PokemonSpecies] = {
         attack=60,
         defense=78,
         speed=43,
+        pokemon_type="water",
         move_ids=[
             "tackle",
             "headbutt",
@@ -81,6 +84,7 @@ POKEDEX: dict[str, PokemonSpecies] = {
         attack=72,
         defense=50,
         speed=90,
+        pokemon_type="electric",
         move_ids=[
             "quickattack",
             "headbutt",
@@ -102,6 +106,7 @@ POKEDEX: dict[str, PokemonSpecies] = {
         attack=68,
         defense=60,
         speed=72,
+        pokemon_type="normal/flying",
         move_ids=[
             "quickattack",
             "gust",
@@ -123,6 +128,7 @@ POKEDEX: dict[str, PokemonSpecies] = {
         attack=78,
         defense=95,
         speed=20,
+        pokemon_type="rock/ground",
         move_ids=[
             "tackle",
             "headbutt",
@@ -144,6 +150,7 @@ POKEDEX: dict[str, PokemonSpecies] = {
         attack=64,
         defense=58,
         speed=55,
+        pokemon_type="water",
         move_ids=[
             "watergun",
             "bubblebeam",
@@ -165,6 +172,7 @@ POKEDEX: dict[str, PokemonSpecies] = {
         attack=74,
         defense=60,
         speed=70,
+        pokemon_type="fire",
         move_ids=[
             "bite",
             "headbutt",
@@ -186,6 +194,7 @@ POKEDEX: dict[str, PokemonSpecies] = {
         attack=56,
         defense=62,
         speed=30,
+        pokemon_type="grass/poison",
         move_ids=[
             "absorb",
             "vinewhip",
@@ -207,6 +216,7 @@ POKEDEX: dict[str, PokemonSpecies] = {
         attack=62,
         defense=56,
         speed=68,
+        pokemon_type="fire",
         move_ids=[
             "scratch",
             "quickattack",
@@ -228,6 +238,7 @@ POKEDEX: dict[str, PokemonSpecies] = {
         attack=58,
         defense=60,
         speed=72,
+        pokemon_type="water",
         move_ids=[
             "tackle",
             "watergun",
@@ -249,6 +260,7 @@ POKEDEX: dict[str, PokemonSpecies] = {
         attack=84,
         defense=70,
         speed=40,
+        pokemon_type="fighting",
         move_ids=[
             "tackle",
             "headbutt",
@@ -270,6 +282,7 @@ POKEDEX: dict[str, PokemonSpecies] = {
         attack=48,
         defense=42,
         speed=88,
+        pokemon_type="psychic",
         move_ids=[
             "quickattack",
             "swift",
@@ -291,6 +304,7 @@ POKEDEX: dict[str, PokemonSpecies] = {
         attack=66,
         defense=82,
         speed=64,
+        pokemon_type="electric/steel",
         move_ids=[
             "tackle",
             "swift",
@@ -312,6 +326,7 @@ POKEDEX: dict[str, PokemonSpecies] = {
         attack=72,
         defense=84,
         speed=46,
+        pokemon_type="ground",
         move_ids=[
             "scratch",
             "slash",
@@ -333,6 +348,7 @@ POKEDEX: dict[str, PokemonSpecies] = {
         attack=68,
         defense=52,
         speed=40,
+        pokemon_type="grass/poison",
         move_ids=[
             "vinewhip",
             "razorleaf",
@@ -354,6 +370,7 @@ POKEDEX: dict[str, PokemonSpecies] = {
         attack=66,
         defense=48,
         speed=82,
+        pokemon_type="normal",
         move_ids=[
             "tackle",
             "quickattack",
@@ -375,6 +392,7 @@ POKEDEX: dict[str, PokemonSpecies] = {
         attack=70,
         defense=52,
         speed=76,
+        pokemon_type="normal/flying",
         move_ids=[
             "quickattack",
             "gust",
@@ -396,6 +414,7 @@ POKEDEX: dict[str, PokemonSpecies] = {
         attack=68,
         defense=56,
         speed=60,
+        pokemon_type="poison",
         move_ids=[
             "bite",
             "headbutt",
@@ -417,6 +436,7 @@ POKEDEX: dict[str, PokemonSpecies] = {
         attack=62,
         defense=62,
         speed=48,
+        pokemon_type="poison",
         move_ids=[
             "scratch",
             "headbutt",
@@ -438,6 +458,7 @@ POKEDEX: dict[str, PokemonSpecies] = {
         attack=66,
         defense=58,
         speed=50,
+        pokemon_type="poison",
         move_ids=[
             "scratch",
             "headbutt",
@@ -459,6 +480,7 @@ POKEDEX: dict[str, PokemonSpecies] = {
         attack=72,
         defense=60,
         speed=34,
+        pokemon_type="bug/grass",
         move_ids=[
             "scratch",
             "slash",
@@ -480,6 +502,7 @@ POKEDEX: dict[str, PokemonSpecies] = {
         attack=58,
         defense=58,
         speed=50,
+        pokemon_type="bug/poison",
         move_ids=[
             "tackle",
             "headbutt",
@@ -501,6 +524,7 @@ POKEDEX: dict[str, PokemonSpecies] = {
         attack=66,
         defense=50,
         speed=86,
+        pokemon_type="normal",
         move_ids=[
             "scratch",
             "bite",
@@ -522,6 +546,7 @@ POKEDEX: dict[str, PokemonSpecies] = {
         attack=80,
         defense=54,
         speed=74,
+        pokemon_type="fighting",
         move_ids=[
             "scratch",
             "headbutt",
@@ -543,6 +568,7 @@ POKEDEX: dict[str, PokemonSpecies] = {
         attack=54,
         defense=66,
         speed=70,
+        pokemon_type="water/poison",
         move_ids=[
             "watergun",
             "bubblebeam",
@@ -564,6 +590,7 @@ POKEDEX: dict[str, PokemonSpecies] = {
         attack=76,
         defense=58,
         speed=88,
+        pokemon_type="fire",
         move_ids=[
             "tackle",
             "quickattack",
@@ -585,6 +612,7 @@ POKEDEX: dict[str, PokemonSpecies] = {
         attack=62,
         defense=72,
         speed=24,
+        pokemon_type="water/psychic",
         move_ids=[
             "tackle",
             "watergun",
@@ -606,6 +634,7 @@ POKEDEX: dict[str, PokemonSpecies] = {
         attack=78,
         defense=54,
         speed=82,
+        pokemon_type="normal/flying",
         move_ids=[
             "quickattack",
             "gust",
@@ -627,6 +656,7 @@ POKEDEX: dict[str, PokemonSpecies] = {
         attack=68,
         defense=64,
         speed=48,
+        pokemon_type="water",
         move_ids=[
             "headbutt",
             "watergun",
