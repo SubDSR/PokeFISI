@@ -6,6 +6,8 @@ class BattleMove:
     id: str
     name: str
     base_power: int
+    accuracy: float
+    move_type: str
     description: str
 
 

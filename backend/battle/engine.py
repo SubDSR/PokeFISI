@@ -146,6 +146,12 @@ class BattleEngine:
             return
 
         move = attacker.moves[move_index]
+
+        if self.rng.random() > move.accuracy:
+            self._call_ui_hook("on_move", self.state, player_index, move.name, 0, attacker.name, defender.name)
+            self._log(f"{attacker.name} usa {move.name} pero falla!")
+            return
+
         damage = calculate_damage(attacker, defender, move)
         defender.hp = max(0, defender.hp - damage)
 

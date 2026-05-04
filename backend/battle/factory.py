@@ -16,6 +16,8 @@ def build_battle_pokemon(species_id: str, rng: random.Random) -> BattlePokemon:
             id=MOVEDEX[move_id].id,
             name=MOVEDEX[move_id].name,
             base_power=MOVEDEX[move_id].base_power,
+            accuracy=MOVEDEX[move_id].accuracy,
+            move_type=MOVEDEX[move_id].move_type,
             description=MOVEDEX[move_id].description,
         )
         for move_id in selected_move_ids

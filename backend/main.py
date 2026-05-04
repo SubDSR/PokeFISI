@@ -4,7 +4,7 @@ import argparse
 import random
 from pathlib import Path
 
-from backend.agents import RandomAgent
+from backend.agents import HeuristicAgent, RandomAgent
 from backend.battle import BattleEngine, BattleState, build_random_team
 from backend.experiments import run_experiment
 from backend.server import run_server
@@ -14,6 +14,8 @@ from backend.ui import ConsoleBattleUI, ReplayBattleUI
 def create_agent(agent_name: str, rng: random.Random):
     if agent_name == "random":
         return RandomAgent(rng=rng)
+    if agent_name == "heuristic":
+        return HeuristicAgent()
     raise ValueError(f"Agente no soportado: {agent_name}")
 
 
@@ -61,6 +63,7 @@ def run_batch(args) -> None:
     print(f"Tamano de equipo: {summary['team_size']}")
     print(f"Agentes: {summary['agent1']} vs {summary['agent2']}")
     print(f"Victorias: {summary['wins']}")
+    print(f"Win rate: {summary['win_rate']}")
     print(f"Promedio de turnos: {summary['average_turns']}")
 
 
@@ -69,8 +72,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--mode", choices=["battle", "experiment", "serve"], default="battle")
     parser.add_argument("--ui", choices=["console", "replay"], default="console")
     parser.add_argument("--team-size", type=int, choices=[3, 4], default=3)
-    parser.add_argument("--agent1", choices=["random"], default="random")
-    parser.add_argument("--agent2", choices=["random"], default="random")
+    parser.add_argument("--agent1", choices=["random", "heuristic"], default="random")
+    parser.add_argument("--agent2", choices=["random", "heuristic"], default="random")
     parser.add_argument("--battles", type=int, default=20)
     parser.add_argument("--seed", type=int, default=7)
     parser.add_argument("--quiet", action="store_true")
