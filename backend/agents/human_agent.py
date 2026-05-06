@@ -4,6 +4,9 @@ from backend.battle.state import BattleState
 
 
 class HumanAgent(BaseAgent):
+    def __init__(self, name: str = "Humano"):
+        super().__init__(name)
+
     def choose_action(self, state: BattleState, player_index: int, legal_actions: list[BattleAction]) -> BattleAction:
         print("\n--- Tu turno ---")
         for i, action in enumerate(legal_actions):
