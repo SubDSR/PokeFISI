@@ -8,18 +8,18 @@ class HumanAgent(BaseAgent):
         super().__init__(name)
 
     def choose_action(self, state: BattleState, player_index: int, legal_actions: list[BattleAction]) -> BattleAction:
-        print("\n--- Tu turno ---")
+        print("\n[INPUT] Tu turno")
         for i, action in enumerate(legal_actions):
             print(f"  {i + 1}. {action.label}")
 
         while True:
             try:
-                raw = input(f"Elige una accion (1-{len(legal_actions)}): ").strip()
+                raw = input(f"[INPUT] Elige una accion (1-{len(legal_actions)}): ").strip()
                 index = int(raw) - 1
                 if 0 <= index < len(legal_actions):
                     return legal_actions[index]
-                print(f"Numero fuera de rango. Elige entre 1 y {len(legal_actions)}.")
+                print(f"[ERROR] Numero fuera de rango. Elige entre 1 y {len(legal_actions)}.")
             except ValueError:
-                print("Entrada invalida. Ingresa un numero.")
+                print("[ERROR] Entrada invalida. Ingresa un numero.")
             except EOFError:
                 return legal_actions[0]
