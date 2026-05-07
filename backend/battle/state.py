@@ -40,8 +40,14 @@ class BattleState:
                 actions.append(BattleAction("switch", switch_index, f"Cambiar a {pokemon.name}"))
             return actions
 
+        has_moves = False
         for move_index, move in enumerate(team.active_pokemon.moves):
-            actions.append(BattleAction("move", move_index, f"Usar {move.name}"))
+            if move.has_pp():
+                actions.append(BattleAction("move", move_index, f"Usar {move.name} (PP: {move.pp}/{move.max_pp})"))
+                has_moves = True
+
+        if not has_moves:
+            actions.append(BattleAction("struggle", 0, "Struggle"))
 
         for switch_index, pokemon in team.available_switches():
             actions.append(BattleAction("switch", switch_index, f"Cambiar a {pokemon.name}"))

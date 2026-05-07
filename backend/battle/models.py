@@ -1,12 +1,23 @@
 from dataclasses import dataclass, field
 
 
-@dataclass(frozen=True)
+@dataclass
 class BattleMove:
     id: str
     name: str
     base_power: int
+    accuracy: float
+    move_type: str
     description: str
+    max_pp: int
+    pp: int
+
+    def has_pp(self) -> bool:
+        return self.pp > 0
+
+    def consume_pp(self) -> None:
+        if self.pp > 0:
+            self.pp -= 1
 
 
 @dataclass
@@ -29,6 +40,9 @@ class BattlePokemon:
     @property
     def hp_ratio(self) -> float:
         return self.hp / self.max_hp if self.max_hp else 0.0
+
+    def has_usable_moves(self) -> bool:
+        return any(move.has_pp() for move in self.moves)
 
 
 @dataclass(frozen=True)

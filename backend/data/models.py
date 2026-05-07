@@ -9,6 +9,7 @@ class MoveData:
     accuracy: float
     move_type: str
     description: str
+    pp: int
 
 
 @dataclass(frozen=True)

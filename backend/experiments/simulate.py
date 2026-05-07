@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import random
 
-from backend.agents import RandomAgent
+from backend.agents import HeuristicAgent, RandomAgent
 from backend.battle import BattleEngine, BattleState, build_random_team
 from backend.ui import ConsoleBattleUI
 
@@ -12,6 +12,8 @@ from backend.ui import ConsoleBattleUI
 def create_agent(agent_name: str, rng: random.Random):
     if agent_name == "random":
         return RandomAgent(rng=rng)
+    if agent_name == "heuristic":
+        return HeuristicAgent()
     raise ValueError(f"Agente no soportado: {agent_name}")
 
 
@@ -38,11 +40,16 @@ def run_experiment(
         turn_counts.append(result.turns)
 
     average_turns = sum(turn_counts) / len(turn_counts) if turn_counts else 0.0
+    win_rate = {
+        player: round(count / battles * 100, 1) if battles else 0.0
+        for player, count in wins.items()
+    }
     return {
         "battles": battles,
         "team_size": team_size,
         "agent1": agent1_name,
         "agent2": agent2_name,
         "wins": wins,
+        "win_rate": win_rate,
         "average_turns": round(average_turns, 2),
     }

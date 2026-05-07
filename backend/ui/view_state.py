@@ -40,7 +40,7 @@ def _serialize_action_groups(actions: list[BattleAction], forced_switch: bool) -
             "index": action.index,
             "label": action.label,
         }
-        if action.action_type == "move":
+        if action.action_type in ("move", "struggle"):
             moves.append(serialized)
         elif action.action_type == "switch":
             switches.append(serialized)
@@ -79,7 +79,10 @@ def _serialize_pokemon(pokemon: BattlePokemon, perspective: str) -> dict:
         "defense": pokemon.defense,
         "speed": pokemon.speed,
         "spriteUrl": sprite_url,
-        "moves": [move.name for move in pokemon.moves],
+        "moves": [
+            {"name": move.name, "pp": move.pp, "maxPp": move.max_pp, "type": move.move_type, "power": move.base_power}
+            for move in pokemon.moves
+        ],
         "fainted": pokemon.is_fainted(),
     }
 

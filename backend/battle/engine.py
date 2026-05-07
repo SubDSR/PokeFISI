@@ -109,6 +109,9 @@ class BattleEngine:
             return
         if action.action_type == "move":
             self._execute_move(player_index, action.index)
+            return
+        if action.action_type == "struggle":
+            self._execute_struggle(player_index)
 
     def _execute_switch(self, player_index: int, switch_index: int, forced: bool = False) -> None:
         team = self.state.team_of(player_index)
@@ -146,6 +149,13 @@ class BattleEngine:
             return
 
         move = attacker.moves[move_index]
+        move.consume_pp()
+
+        if self.rng.random() > move.accuracy:
+            self._call_ui_hook("on_move", self.state, player_index, move.name, 0, attacker.name, defender.name)
+            self._log(f"{attacker.name} usa {move.name} pero falla! (PP: {move.pp}/{move.max_pp})")
+            return
+
         damage = calculate_damage(attacker, defender, move)
         defender.hp = max(0, defender.hp - damage)
 
@@ -160,13 +170,41 @@ class BattleEngine:
         )
 
         self._log(
-            f"{attacker_team.trainer_name} usa {move.name} con {attacker.name} y causa {damage} de dano a {defender.name}."
+            f"{attacker_team.trainer_name} usa {move.name} (PP: {move.pp}/{move.max_pp}) con {attacker.name}"
+            f" y causa {damage} de dano a {defender.name}."
         )
         self._log(f"{defender.name} queda con {defender.hp}/{defender.max_hp} HP.")
 
         if defender.is_fainted():
             self._call_ui_hook("on_faint", self.state, 1 - player_index, defender.name)
             self._log(f"{defender_team.trainer_name} pierde a {defender.name}.")
+
+    def _execute_struggle(self, player_index: int) -> None:
+        attacker_team = self.state.team_of(player_index)
+        defender_team = self.state.opponent_of(player_index)
+        attacker = attacker_team.active_pokemon
+        defender = defender_team.active_pokemon
+
+        if attacker.is_fainted():
+            return
+
+        damage = max(1, int(attacker.attack * 0.5))
+        recoil = max(1, damage // 4)
+
+        defender.hp = max(0, defender.hp - damage)
+        attacker.hp = max(0, attacker.hp - recoil)
+
+        self._log(f"{attacker.name} usa Struggle y causa {damage} de dano a {defender.name}.")
+        self._log(f"{attacker.name} recibe {recoil} de dano por retroceso.")
+        self._log(f"{defender.name} queda con {defender.hp}/{defender.max_hp} HP.")
+
+        if defender.is_fainted():
+            self._call_ui_hook("on_faint", self.state, 1 - player_index, defender.name)
+            self._log(f"{defender_team.trainer_name} pierde a {defender.name}.")
+
+        if attacker.is_fainted():
+            self._call_ui_hook("on_faint", self.state, player_index, attacker.name)
+            self._log(f"{attacker_team.trainer_name} pierde a {attacker.name}.")
 
     def _log(self, message: str) -> None:
         self.state.log.append(message)
