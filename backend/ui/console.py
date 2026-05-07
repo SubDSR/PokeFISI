@@ -23,6 +23,7 @@ class ConsoleBattleUI:
     CYAN = "\033[36m"
     GRAY = "\033[90m"
     LINE_WIDTH = 78
+    ANSI_PATTERN = re.compile(r"\x1b\[[0-9;]*m")
     HP_MESSAGE_PATTERN = re.compile(r"^(?P<name>.+) queda con (?P<hp>\d+)/(?P<max_hp>\d+) HP\.$")
 
     def __init__(
@@ -43,25 +44,36 @@ class ConsoleBattleUI:
     def show_battle_intro(self, state: BattleState) -> None:
         team1 = state.team_of(0)
         team2 = state.team_of(1)
+        headers = ["Lado", "Entrenador", "Activo", "Equipo"]
+        rows = [
+            self._team_summary_row(team1, side_label="LADO 1"),
+            self._team_summary_row(team2, side_label="LADO 2"),
+        ]
+        table_width = self._table_width(headers, rows)
         self._emit_blank_line()
-        self._emit(self._separator("="), pause=0.0)
+        self._emit(self._separator("=", width=table_width), pause=0.0)
         self._emit(self._format_tag("BATTLE", f"{team1.trainer_name} vs {team2.trainer_name}"), pause=0.0)
-        self._emit(self._team_summary(team1, side_label="LADO 1"), pause=0.0)
-        self._emit(self._team_summary(team2, side_label="LADO 2"), pause=0.0)
-        self._emit(self._separator("="))
+        self._emit_table(headers, rows)
+        self._emit(self._separator("=", width=table_width))
         self._log_random_agent_note()
 
     def show_turn(self, state: BattleState) -> None:
         team1 = state.team_of(0)
         team2 = state.team_of(1)
+        headers = ["Lado", "Entrenador", "Activo", "HP", "ATK", "DEF", "SPD", "Disponibles"]
+        rows = [
+            self._active_summary_row(team1, side_label="LADO 1"),
+            self._active_summary_row(team2, side_label="LADO 2"),
+        ]
+        alignments = ["left", "left", "left", "left", "right", "right", "right", "right"]
+        table_width = self._table_width(headers, rows, alignments=alignments)
         self._decision_section_open = False
         self._resolution_section_open = False
         self._emit_blank_line()
-        self._emit(self._separator("-"), pause=0.0)
+        self._emit(self._separator("-", width=table_width), pause=0.0)
         self.log(f"TURNO {state.turn_number}", kind="TURN", pause=0.0)
-        self._emit(self._active_summary(team1, side_label="LADO 1"), pause=0.0)
-        self._emit(self._active_summary(team2, side_label="LADO 2"), pause=0.0)
-        self._emit(self._separator("-"))
+        self._emit_table(headers, rows, alignments=alignments)
+        self._emit(self._separator("-", width=table_width))
 
     def show_winner(self, winner: str, state: BattleState) -> None:
         self._emit_blank_line()
@@ -88,8 +100,14 @@ class ConsoleBattleUI:
             context = "cambio forzado" if forced else "seleccion de accion"
             options_label = "opcion" if len(legal_actions) == 1 else "opciones"
             self.log(f"{trainer_name} analiza {len(legal_actions)} {options_label} para {context}.", kind="INFO", pause=0.0)
-            for action_index, action in enumerate(legal_actions):
-                self._emit(f"    [{action_index}] {action.label}", pause=0.0)
+            self._emit_table(
+                ["#", "Tipo", "Accion"],
+                [
+                    [str(action_index), self._action_kind(action), action.label]
+                    for action_index, action in enumerate(legal_actions)
+                ],
+                alignments=["right", "left", "left"],
+            )
 
             self._pause(self.decision_delay)
             self._describe_agent_choice(trainer_name, legal_actions, proposed_action, decision_details)
@@ -204,21 +222,27 @@ class ConsoleBattleUI:
             return
         self.log("Las IAs Random no calculan la mejor jugada: sortean una accion valida por indice.", kind="INFO")
 
-    def _team_summary(self, team, side_label: str) -> str:
-        members = ", ".join(pokemon.name for pokemon in team.pokemons)
-        active = team.active_pokemon.name
-        return f"  {side_label:<6} | {team.trainer_name:<18} | Activo: {active:<12} | Equipo: {members}"
+    def _team_summary_row(self, team, side_label: str) -> list[str]:
+        return [
+            side_label,
+            team.trainer_name,
+            team.active_pokemon.name,
+            ", ".join(pokemon.name for pokemon in team.pokemons),
+        ]
 
-    def _active_summary(self, team, side_label: str) -> str:
+    def _active_summary_row(self, team, side_label: str) -> list[str]:
         active = team.active_pokemon
         survivors = sum(not pokemon.is_fainted() for pokemon in team.pokemons)
-        hp_bar = self._hp_bar(active.hp, active.max_hp)
-        return (
-            f"  {side_label:<6} | {team.trainer_name:<18} | {active.name:<12} "
-            f"HP {hp_bar} {active.hp:>3}/{active.max_hp:<3} | "
-            f"ATK {active.attack:<3} DEF {active.defense:<3} SPD {active.speed:<3} | "
-            f"Disponibles {survivors}/{len(team.pokemons)}"
-        )
+        return [
+            side_label,
+            team.trainer_name,
+            active.name,
+            f"{self._hp_bar(active.hp, active.max_hp)} {active.hp}/{active.max_hp}",
+            str(active.attack),
+            str(active.defense),
+            str(active.speed),
+            f"{survivors}/{len(team.pokemons)}",
+        ]
 
     def _action_kind(self, action: BattleAction) -> str:
         if action.action_type == "switch":
@@ -298,8 +322,66 @@ class ConsoleBattleUI:
             "DRAW": self.YELLOW,
         }.get(kind, self.CYAN)
 
-    def _separator(self, fill: str) -> str:
-        return self._stylize(fill * self.LINE_WIDTH, self.GRAY)
+    def _separator(self, fill: str, width: int | None = None) -> str:
+        return self._stylize(fill * (width or self.LINE_WIDTH), self.GRAY)
+
+    def _emit_table(
+        self,
+        headers: list[str],
+        rows: list[list[str]],
+        alignments: list[str] | None = None,
+    ) -> None:
+        for line in self._render_table(headers, rows, alignments=alignments):
+            self._emit(line, pause=0.0)
+
+    def _render_table(
+        self,
+        headers: list[str],
+        rows: list[list[str]],
+        alignments: list[str] | None = None,
+    ) -> list[str]:
+        normalized_headers = [str(header) for header in headers]
+        normalized_rows = [[str(cell) for cell in row] for row in rows]
+        widths = [self._visible_len(header) for header in normalized_headers]
+
+        for row in normalized_rows:
+            for index, cell in enumerate(row):
+                widths[index] = max(widths[index], self._visible_len(cell))
+
+        border = self._table_border(widths)
+        header_row = self._table_row(normalized_headers, widths, alignments)
+        lines = [border, self._stylize(header_row, self.BOLD), border]
+        lines.extend(self._table_row(row, widths, alignments) for row in normalized_rows)
+        lines.append(border)
+        return lines
+
+    def _table_width(
+        self,
+        headers: list[str],
+        rows: list[list[str]],
+        alignments: list[str] | None = None,
+    ) -> int:
+        return self._visible_len(self._render_table(headers, rows, alignments=alignments)[0])
+
+    def _table_border(self, widths: list[int]) -> str:
+        border = "+-" + "-+-".join("-" * width for width in widths) + "-+"
+        return self._stylize(border, self.GRAY)
+
+    def _table_row(self, cells: list[str], widths: list[int], alignments: list[str] | None = None) -> str:
+        padded_cells = []
+        for index, cell in enumerate(cells):
+            align = alignments[index] if alignments and index < len(alignments) else "left"
+            padded_cells.append(self._pad_cell(cell, widths[index], align=align))
+        return "| " + " | ".join(padded_cells) + " |"
+
+    def _pad_cell(self, value: str, width: int, align: str = "left") -> str:
+        padding = max(0, width - self._visible_len(value))
+        if align == "right":
+            return " " * padding + value
+        return value + " " * padding
+
+    def _visible_len(self, value: str) -> int:
+        return len(self.ANSI_PATTERN.sub("", value))
 
     def _stylize(self, text: str, color: str) -> str:
         if not self.use_color:
