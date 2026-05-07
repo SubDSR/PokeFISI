@@ -64,13 +64,29 @@ def run_batch(args) -> None:
         verbose=False,
     )
     agent1_label, agent2_label = build_agent_labels(args.agent1, args.agent2)
-    print("Resumen del experimento")
-    print(f"Batallas: {summary['battles']}")
-    print(f"Tamano de equipo: {summary['team_size']}")
-    print(f"Agentes: {agent1_label} vs {agent2_label}")
-    print(f"Victorias: {summary['wins']}")
-    print(f"Win rate: {summary['win_rate']}")
-    print(f"Promedio de turnos: {summary['average_turns']}")
+    rows = [
+        ("Batallas", str(summary["battles"])),
+        ("Tamano de equipo", str(summary["team_size"])),
+        ("Agentes", f"{agent1_label} vs {agent2_label}"),
+        ("Victorias", str(summary["wins"])),
+        ("Win rate", str(summary["win_rate"])),
+        ("Promedio de turnos", str(summary["average_turns"])),
+    ]
+    _print_summary_box("Resumen del experimento", rows)
+
+
+def _print_summary_box(title: str, rows: list[tuple[str, str]]) -> None:
+    label_width = max(len(label) for label, _ in rows)
+    content_width = max(len(title), *(label_width + 3 + len(value) for label, value in rows))
+    horizontal = "+-" + "-" * content_width + "-+"
+
+    print(horizontal)
+    print(f"| {title:<{content_width}} |")
+    print(horizontal)
+    for label, value in rows:
+        line = f"{label:<{label_width}} : {value}"
+        print(f"| {line:<{content_width}} |")
+    print(horizontal)
 
 
 def build_parser() -> argparse.ArgumentParser:

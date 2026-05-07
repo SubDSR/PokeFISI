@@ -37,6 +37,8 @@ class ConsoleBattleUI:
         self.decision_delay = max(0.0, decision_delay)
         self.agent_names = agent_names or []
         self.use_color = self._supports_color()
+        self._decision_section_open = False
+        self._resolution_section_open = False
 
     def show_battle_intro(self, state: BattleState) -> None:
         team1 = state.team_of(0)
@@ -52,6 +54,8 @@ class ConsoleBattleUI:
     def show_turn(self, state: BattleState) -> None:
         team1 = state.team_of(0)
         team2 = state.team_of(1)
+        self._decision_section_open = False
+        self._resolution_section_open = False
         self._emit_blank_line()
         self._emit(self._separator("-"), pause=0.0)
         self.log(f"TURNO {state.turn_number}", kind="TURN", pause=0.0)
@@ -79,6 +83,7 @@ class ConsoleBattleUI:
         forced: bool = False,
     ) -> None:
         trainer_name = state.team_of(player_index).trainer_name
+        self._open_decision_section(forced)
         if not self._is_human_agent(player_index):
             context = "cambio forzado" if forced else "seleccion de accion"
             options_label = "opcion" if len(legal_actions) == 1 else "opciones"
@@ -95,11 +100,13 @@ class ConsoleBattleUI:
                 pause=0.0,
             )
         self._pause(self.decision_delay)
-        self.log(f"{trainer_name} ejecuta {final_action.label}.", kind=self._action_kind(final_action))
+        self.log(f"{trainer_name} confirma {final_action.label}.", kind="CHOICE")
 
     def log(self, message: str, kind: str | None = None, pause: float | None = None) -> None:
         if not self.verbose:
             return
+        if kind is None:
+            self._open_resolution_section()
         resolved_kind = kind or self._classify_message(message)
         formatted_message = self._format_raw_message(resolved_kind, message)
         self._emit(self._format_tag(resolved_kind, formatted_message), pause=pause)
@@ -163,12 +170,30 @@ class ConsoleBattleUI:
             time.sleep(seconds)
 
     def _emit(self, message: str, pause: float | None = None) -> None:
+        if not self.verbose:
+            return
         print(message)
         self._pause(self.message_delay if pause is None else pause)
 
     def _emit_blank_line(self) -> None:
         if self.verbose:
             print()
+
+    def _open_decision_section(self, forced: bool) -> None:
+        if self._decision_section_open and not (forced and self._resolution_section_open):
+            return
+        title = "FASE DE CAMBIOS FORZADOS" if forced else "FASE DE DECISIONES"
+        self._emit_blank_line()
+        self.log(title, kind="PHASE", pause=0.0)
+        self._decision_section_open = True
+
+    def _open_resolution_section(self) -> None:
+        if self._resolution_section_open:
+            return
+        self._emit_blank_line()
+        self.log("RESOLUCION DEL TURNO", kind="RESOLVE", pause=0.0)
+        self._decision_section_open = False
+        self._resolution_section_open = True
 
     def _log_random_agent_note(self) -> None:
         random_agents = sum(agent_name == "random" for agent_name in self.agent_names)
@@ -259,7 +284,10 @@ class ConsoleBattleUI:
         return {
             "BATTLE": self.CYAN,
             "TURN": self.MAGENTA,
+            "PHASE": self.CYAN,
+            "RESOLVE": self.MAGENTA,
             "INFO": self.CYAN,
+            "CHOICE": self.YELLOW,
             "MOVE": self.BLUE,
             "MISS": self.RED,
             "SWITCH": self.YELLOW,
