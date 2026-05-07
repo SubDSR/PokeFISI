@@ -4,6 +4,7 @@ import argparse
 import random
 from pathlib import Path
 
+from backend.agent_labels import build_agent_labels
 from backend.agents import HeuristicAgent, HumanAgent, RandomAgent
 from backend.battle import BattleEngine, BattleState, build_random_team
 from backend.experiments import run_experiment
@@ -28,13 +29,15 @@ def build_ui(args):
         verbose=not args.quiet,
         message_delay=args.message_delay,
         decision_delay=args.decision_delay,
+        agent_names=[args.agent1, args.agent2],
     )
 
 
 def run_single_battle(args) -> None:
     rng = random.Random(args.seed)
-    team1 = build_random_team("Jugador", args.team_size, rng)
-    team2 = build_random_team("IA", args.team_size, rng)
+    trainer1_name, trainer2_name = build_agent_labels(args.agent1, args.agent2)
+    team1 = build_random_team(trainer1_name, args.team_size, rng)
+    team2 = build_random_team(trainer2_name, args.team_size, rng)
     state = BattleState(team1, team2)
     agents = [create_agent(args.agent1, rng), create_agent(args.agent2, rng)]
     ui = build_ui(args)
@@ -60,10 +63,11 @@ def run_batch(args) -> None:
         seed=args.seed,
         verbose=False,
     )
+    agent1_label, agent2_label = build_agent_labels(args.agent1, args.agent2)
     print("Resumen del experimento")
     print(f"Batallas: {summary['battles']}")
     print(f"Tamano de equipo: {summary['team_size']}")
-    print(f"Agentes: {summary['agent1']} vs {summary['agent2']}")
+    print(f"Agentes: {agent1_label} vs {agent2_label}")
     print(f"Victorias: {summary['wins']}")
     print(f"Win rate: {summary['win_rate']}")
     print(f"Promedio de turnos: {summary['average_turns']}")

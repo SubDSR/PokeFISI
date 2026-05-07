@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import random
 
+from backend.agent_labels import build_agent_labels
 from backend.agents import HeuristicAgent, RandomAgent
 from backend.battle import BattleEngine, BattleState, build_random_team
 from backend.ui import ConsoleBattleUI
@@ -26,15 +27,21 @@ def run_experiment(
     verbose: bool = False,
 ) -> dict:
     rng = random.Random(seed)
-    wins = {"Jugador 1": 0, "Jugador 2": 0, "Empate": 0}
+    trainer1_name, trainer2_name = build_agent_labels(agent1_name, agent2_name)
+    wins = {trainer1_name: 0, trainer2_name: 0, "Empate": 0}
     turn_counts: list[int] = []
 
     for _ in range(battles):
-        team1 = build_random_team("Jugador 1", team_size, rng)
-        team2 = build_random_team("Jugador 2", team_size, rng)
+        team1 = build_random_team(trainer1_name, team_size, rng)
+        team2 = build_random_team(trainer2_name, team_size, rng)
         state = BattleState(team1, team2)
         agents = [create_agent(agent1_name, rng), create_agent(agent2_name, rng)]
-        engine = BattleEngine(state, agents, ui=ConsoleBattleUI(verbose=verbose), rng=rng)
+        engine = BattleEngine(
+            state,
+            agents,
+            ui=ConsoleBattleUI(verbose=verbose, agent_names=[agent1_name, agent2_name]),
+            rng=rng,
+        )
         result = engine.run()
         wins[result.winner] = wins.get(result.winner, 0) + 1
         turn_counts.append(result.turns)
