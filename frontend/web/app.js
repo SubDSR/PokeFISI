@@ -1,8 +1,24 @@
 (function () {
+  const DIFFICULTY_HINTS = {
+    easy: "Ideal para aprender. La IA actua aleatoriamente.",
+    medium: "Estrategia basica. La IA maximiza HP.",
+    hard: "Planificacion tactica. La IA anticipa 2 turnos.",
+    sobrevilla: "IA entrenada con algoritmos geneticos. Maximo desafio.",
+  };
+
+  const DIFFICULTY_LABELS = {
+    easy: "Facil",
+    medium: "Medio",
+    hard: "Dificil",
+    sobrevilla: "Maestro",
+  };
+
   const elements = {
     modeScreen: document.getElementById("mode-screen"),
     startHuman: document.getElementById("start-human"),
     startAi: document.getElementById("start-ai"),
+    difficulty: document.getElementById("difficulty"),
+    difficultyHint: document.getElementById("difficulty-hint"),
     teamSize: document.getElementById("team-size"),
     battleScreen: document.getElementById("battle-screen"),
     battlefield: document.getElementById("battlefield"),
@@ -205,7 +221,10 @@
     elements.next.classList.add("hidden");
     elements.toggle.disabled = true;
     elements.next.disabled = true;
-    elements.statusPill.textContent = "Modo jugador";
+    const diffLabel = DIFFICULTY_LABELS[state.difficulty] || "";
+    elements.statusPill.textContent = diffLabel
+      ? `Modo jugador (${diffLabel})`
+      : "Modo jugador";
   }
 
   function updateWinnerBanner() {
@@ -388,14 +407,17 @@
   }
 
   async function startBattle(mode) {
+    const difficulty = elements.difficulty ? elements.difficulty.value : "medium";
     state.autoplay = false;
     state.menu = "root";
+    state.difficulty = difficulty;
     elements.modeScreen.classList.add("hidden");
     elements.message.textContent = "Preparando batalla...";
     try {
       const packet = await api.post("/api/battle/start", {
         mode,
         teamSize: Number(elements.teamSize.value),
+        difficulty,
       });
       state.sessionId = packet.sessionId;
       state.mode = packet.mode;
@@ -458,6 +480,13 @@
     elements.message.textContent = "Selecciona un modo para comenzar.";
     elements.statusPill.textContent = "Esperando inicio";
     renderActionPanel();
+  }
+
+  if (elements.difficulty) {
+    elements.difficulty.addEventListener("change", () => {
+      const hint = DIFFICULTY_HINTS[elements.difficulty.value] || "";
+      if (elements.difficultyHint) elements.difficultyHint.textContent = hint;
+    });
   }
 
   elements.startHuman.addEventListener("click", () => startBattle("human-vs-ai"));

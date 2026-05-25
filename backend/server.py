@@ -24,8 +24,10 @@ class SessionStore:
         self._lock = threading.Lock()
         self._sessions: dict[str, BattleSession] = {}
 
-    def create(self, mode: str, team_size: int, seed: int | None) -> BattleSession:
-        session = BattleSession(mode=mode, team_size=team_size, seed=seed)
+    def create(
+        self, mode: str, team_size: int, seed: int | None, difficulty: str = "medium"
+    ) -> BattleSession:
+        session = BattleSession(mode=mode, team_size=team_size, seed=seed, difficulty=difficulty)
         with self._lock:
             self._sessions[session.session_id] = session
         return session
@@ -67,10 +69,20 @@ class PokefisiHandler(BaseHTTPRequestHandler):
             mode = payload.get("mode", "human-vs-ai")
             team_size = int(payload.get("teamSize", 3))
             seed = payload.get("seed")
+            difficulty = payload.get("difficulty", "medium")
             if mode not in {"human-vs-ai", "ai-vs-ai"}:
                 self._write_json({"error": "Modo invalido."}, status=HTTPStatus.BAD_REQUEST)
                 return
-            session = self.session_store.create(mode=mode, team_size=team_size, seed=seed)
+            from backend.config import VALID_DIFFICULTIES
+            if difficulty not in VALID_DIFFICULTIES:
+                self._write_json(
+                    {"error": f"Dificultad invalida. Valores validos: {sorted(VALID_DIFFICULTIES)}"},
+                    status=HTTPStatus.BAD_REQUEST,
+                )
+                return
+            session = self.session_store.create(
+                mode=mode, team_size=team_size, seed=seed, difficulty=difficulty
+            )
             self._write_json(session.start())
             return
 

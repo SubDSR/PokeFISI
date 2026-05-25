@@ -33,6 +33,7 @@ def build_battle_pokemon(species_id: str, rng: random.Random) -> BattlePokemon:
         attack=species.attack,
         defense=species.defense,
         speed=species.speed,
+        pokemon_type=species.pokemon_type,
         moves=moves,
         sprite_front_url=species.sprite_front_url,
         sprite_back_url=species.sprite_back_url,

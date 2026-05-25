@@ -8,6 +8,7 @@ import uuid
 from backend.agents import RandomAgent
 from backend.battle import BattleEngine, BattleState, build_random_team
 from backend.battle.models import BattleAction
+from backend.config import build_agent, VALID_DIFFICULTIES
 from backend.ui.view_state import build_view_state
 
 
@@ -99,9 +100,16 @@ class SessionFrameCollector:
 
 
 class BattleSession:
-    def __init__(self, mode: str, team_size: int = 3, seed: int | None = None):
+    def __init__(
+        self,
+        mode: str,
+        team_size: int = 3,
+        seed: int | None = None,
+        difficulty: str = "medium",
+    ):
         self.session_id = uuid.uuid4().hex
         self.mode = mode
+        self.difficulty = difficulty if difficulty in VALID_DIFFICULTIES else "medium"
         self.seed = seed if seed is not None else random.randrange(1, 10_000_000)
         self.rng = random.Random(self.seed)
         self.collector = SessionFrameCollector(locked_panel=mode == "ai-vs-ai")
@@ -110,7 +118,7 @@ class BattleSession:
         team1 = build_random_team(player_name, team_size, self.rng)
         team2 = build_random_team("IA 2", team_size, self.rng)
         self.state = BattleState(team1, team2)
-        self.agents = [self._build_player_agent(), RandomAgent(name="IA 2", rng=self.rng)]
+        self.agents = [self._build_player_agent(), self._build_ai_agent()]
         self.engine = BattleEngine(self.state, self.agents, ui=self.collector, rng=self.rng)
 
     def start(self) -> dict:
@@ -240,7 +248,10 @@ class BattleSession:
     def _build_player_agent(self):
         if self.mode == "human-vs-ai":
             return None
-        return RandomAgent(name="IA 1", rng=self.rng)
+        return build_agent(self.difficulty, rng=self.rng)
+
+    def _build_ai_agent(self):
+        return build_agent(self.difficulty, rng=self.rng)
 
     def _player_actions_for_view(self) -> list[BattleAction]:
         if self.state.battle_over():

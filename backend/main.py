@@ -5,8 +5,9 @@ import random
 from pathlib import Path
 
 from backend.agent_labels import build_agent_labels
-from backend.agents import HeuristicAgent, HumanAgent, RandomAgent
+from backend.agents import HeuristicAgent, HumanAgent, MinimaxAgent, RandomAgent
 from backend.battle import BattleEngine, BattleState, build_random_team
+from backend.config import MANUAL_WEIGHTS, MINIMAX_DEPTH, load_agent_weights
 from backend.experiments import run_experiment
 from backend.server import run_server
 from backend.ui import ConsoleBattleUI, ReplayBattleUI
@@ -19,6 +20,13 @@ def create_agent(agent_name: str, rng: random.Random):
         return HeuristicAgent()
     if agent_name == "human":
         return HumanAgent()
+    if agent_name == "minimax":
+        sim_rng = random.Random(rng.randint(0, 1_000_000))
+        return MinimaxAgent(depth=MINIMAX_DEPTH, weights=list(MANUAL_WEIGHTS), rng=sim_rng)
+    if agent_name == "minimax-optimized":
+        sim_rng = random.Random(rng.randint(0, 1_000_000))
+        weights = load_agent_weights(use_optimized=True)
+        return MinimaxAgent(depth=MINIMAX_DEPTH, weights=weights, rng=sim_rng)
     raise ValueError(f"Agente no soportado: {agent_name}")
 
 
@@ -94,8 +102,9 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--mode", choices=["battle", "experiment", "serve"], default="battle")
     parser.add_argument("--ui", choices=["console", "replay"], default="console")
     parser.add_argument("--team-size", type=int, choices=[3, 4], default=3)
-    parser.add_argument("--agent1", choices=["random", "heuristic", "human"], default="random")
-    parser.add_argument("--agent2", choices=["random", "heuristic", "human"], default="random")
+    _agent_choices = ["random", "heuristic", "human", "minimax", "minimax-optimized"]
+    parser.add_argument("--agent1", choices=_agent_choices, default="random")
+    parser.add_argument("--agent2", choices=_agent_choices, default="random")
     parser.add_argument("--battles", type=int, default=20)
     parser.add_argument("--seed", type=int, default=7)
     parser.add_argument("--quiet", action="store_true")

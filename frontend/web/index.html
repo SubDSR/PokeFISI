@@ -17,6 +17,15 @@
         <h1 class="mode-title">Selecciona el modo de combate</h1>
         <p class="mode-copy">Elige si deseas jugar directamente contra la IA o mirar una batalla automatica entre agentes.</p>
 
+        <label class="field-label" for="difficulty">Dificultad de la IA</label>
+        <select id="difficulty" class="team-size-select">
+          <option value="easy">Entrenamiento - Facil</option>
+          <option value="medium" selected>Competitivo - Medio</option>
+          <option value="hard">Experto - Dificil</option>
+          <option value="sobrevilla">Maestro (Sobrevilla)</option>
+        </select>
+        <p class="difficulty-hint" id="difficulty-hint">Estrategia basica. La IA maximiza HP.</p>
+
         <label class="field-label" for="team-size">Tamano del equipo</label>
         <select id="team-size" class="team-size-select">
           <option value="3">3 vs 3</option>
