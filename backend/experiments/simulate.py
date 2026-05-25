@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import random
 
-from backend.agent_labels import build_agent_labels
+from backend.agents.labels import build_agent_labels
 from backend.agents import HeuristicAgent, MinimaxAgent, RandomAgent
 from backend.battle import BattleEngine, BattleState, build_random_team
 from backend.config import MANUAL_WEIGHTS, MINIMAX_DEPTH, load_agent_weights
