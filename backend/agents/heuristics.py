@@ -149,7 +149,7 @@ def f_riesgo_morir(state: BattleState, player_index: int) -> float:
 # Función heurística compuesta
 # ──────────────────────────────────────────────
 
-DEFAULT_WEIGHTS: list[float] = [0.4, 0.2, 0.1, 0.2, 0.1]
+DEFAULT_WEIGHTS: list[float] = [0.25, 0.35, 0.05, 0.2, 0.15]
 
 WIN_VALUE = 1000.0
 LOSS_VALUE = -1000.0

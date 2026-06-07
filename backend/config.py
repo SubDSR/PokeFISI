@@ -27,10 +27,17 @@ _BEST_WEIGHTS_FILE = _RESULTS_DIR / "best_weights.json"
 
 # Pesos ajustados manualmente (nivel "hard" y fallback de "sobrevilla")
 # Orden: [f_pokemon_vivos, f_ventaja_tipo, f_velocidad, f_hp_restante, f_riesgo_morir]
-MANUAL_WEIGHTS: list[float] = [0.4, 0.2, 0.1, 0.2, 0.1]
+# Cambio respecto a v1 [0.4, 0.2, 0.1, 0.2, 0.1]:
+#   - f_ventaja_tipo 0.2→0.35: el tipo domina la táctica; penaliza matchups 4× más fuerte
+#   - f_riesgo_morir 0.1→0.15: penaliza más los estados donde el activo muere en un turno
+#   - f_pokemon_vivos 0.4→0.25: menos peso a conteo bruto (tipo importa más que número)
+#   - f_velocidad 0.1→0.05: la velocidad ya influye en la fórmula de daño; reducida aquí
+MANUAL_WEIGHTS: list[float] = [0.25, 0.35, 0.05, 0.2, 0.15]
 
 # Profundidad de búsqueda Minimax
-MINIMAX_DEPTH: int = 2
+# Profundidad 3 permite ver 3 turnos completos adelante (vs 2 anteriores).
+# Con alpha-beta y top_k=6 el costo práctico es ~1000-5000 nodos vs ~300 de depth=2.
+MINIMAX_DEPTH: int = 3
 
 # Rangos válidos para validación de pesos
 _WEIGHT_MIN = 0.0

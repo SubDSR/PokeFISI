@@ -258,16 +258,18 @@ class MinimaxAgent(BaseAgent):
         """Evalúa la calidad de un cambio considerando ventaja de tipo.
 
         Componentes:
-          - type_advantage (peso 0.5): multiplicador de tipo del mejor movimiento
+          - type_advantage (peso 0.35): multiplicador de tipo del mejor movimiento
             del Pokémon entrante vs el rival activo. Normalizado a [0, 1] dividiendo
-            entre 2.0 (máximo posible). Incentiva cambios a Pokémon con ventaja real.
-          - hp_ratio (peso 0.4): HP actual / HP máximo del Pokémon entrante.
+            entre 4.0 (máximo real con doble tipo: 2x × 2x = 4x). Incentiva cambios
+            a Pokémon con ventaja real sin sobrevalorar la ventaja ofensiva.
+          - hp_ratio (peso 0.25): HP actual / HP máximo del Pokémon entrante.
             Evita cambiar a un Pokémon ya muy debilitado.
-          - vulnerability_reduction (peso 0.1): penaliza cambiar a un Pokémon
-            que el rival puede explotar (si el rival tiene 2x contra el entrante).
+          - vulnerability_score (peso 0.40): 1 − (daño_recibible / 4.0). Penaliza
+            fuertemente los switches suicidas. Con norma 4.0, una debilidad 4×
+            (ej: eléctrico/acero vs tierra) da vulnerability=1.0 → score=0.0 en
+            este componente, lo que evita el error de mandar Magnemite a Mud Shot.
 
-        El score final está en [0, 1] y es directamente comparable con el score
-        de los movimientos (expected_dmg / max_hp, que también está en ese rango).
+        El score final está en [0, 1] y es comparable con el score de movimientos.
         """
         if action.index < 0 or action.index >= len(my_team.pokemons):
             return 0.0
@@ -276,26 +278,29 @@ class MinimaxAgent(BaseAgent):
         opp_active = opp_team.active_pokemon
 
         # Ventaja de tipo: mejor multiplicador de los movimientos del entrante
+        # Normalizado por 4.0 (máximo posible con tipos duales) en vez de 2.0
         best_mult_incoming = max(
             (get_type_multiplier(m.move_type, opp_active.pokemon_type)
              for m in incoming.moves if m.has_pp()),
             default=1.0,
         )
-        type_advantage = best_mult_incoming / 2.0  # normalizado a [0, 1]
+        type_advantage = min(best_mult_incoming / 4.0, 1.0)
 
         # HP del entrante normalizado
         hp_ratio = incoming.hp / max(1, incoming.max_hp)
 
         # Vulnerabilidad del entrante ante el rival
+        # Normalizado por 4.0: una debilidad 4× queda en 1.0 → vulnerability_score = 0.0
         best_mult_opp_vs_incoming = max(
             (get_type_multiplier(m.move_type, incoming.pokemon_type)
              for m in opp_active.moves if m.has_pp()),
             default=1.0,
         )
-        vulnerability = best_mult_opp_vs_incoming / 2.0
+        vulnerability = min(best_mult_opp_vs_incoming / 4.0, 1.0)
         vulnerability_score = 1.0 - vulnerability
 
-        return 0.5 * type_advantage + 0.4 * hp_ratio + 0.1 * vulnerability_score
+        # Vulnerabilidad tiene el mayor peso: evitar switches suicidas es prioritario
+        return 0.35 * type_advantage + 0.25 * hp_ratio + 0.40 * vulnerability_score
 
     # ──────────────────────────────────────────
     # Helpers
