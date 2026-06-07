@@ -48,7 +48,7 @@ class MinimaxAgent(BaseAgent):
         depth: int = 2,
         weights: list[float] | None = None,
         enable_transposition_table: bool = True,
-        top_k_actions: int = 6,
+        top_k_actions: int = 5,
         rng: random.Random | None = None,
     ) -> None:
         super().__init__(name)
@@ -138,9 +138,18 @@ class MinimaxAgent(BaseAgent):
         beta: float,
         depth: int,
     ) -> float:
-        """Para una acción propia fija, devuelve el valor mínimo que puede lograr el oponente."""
+        """Para una acción propia fija, devuelve el valor mínimo que puede lograr el oponente.
+
+        Se usa maximize=True para ordenar las acciones del oponente de mayor a menor score
+        (sus movimientos mas dañinos primero). Esto garantiza dos cosas:
+          1. El top_k selecciona los movimientos MAS PELIGROSOS del rival (no los mas debiles).
+          2. Las ramas con mayor daño se exploran primero, maximizando los cortes beta.
+        Usar maximize=False (el bug anterior) ordenaba ascendente: el movimiento letal del rival
+        quedaba en la ultima posicion y podia ser excluido por top_k, haciendo creer al Minimax
+        que ciertas posiciones eran seguras cuando no lo eran.
+        """
         ordered_opp = self._rank_actions(
-            state, opp_legal, 1 - self._player_index, maximize=False
+            state, opp_legal, 1 - self._player_index, maximize=True
         )
         ordered_opp = ordered_opp[: self.top_k_actions]
 

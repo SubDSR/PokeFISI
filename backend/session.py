@@ -6,7 +6,7 @@ import random
 import uuid
 
 from backend.agents import RandomAgent
-from backend.battle import BattleEngine, BattleState, build_random_team
+from backend.battle import BattleEngine, BattleState, build_balanced_teams
 from backend.battle.models import BattleAction
 from backend.config import build_agent, VALID_DIFFICULTIES
 from backend.ui.view_state import build_view_state
@@ -115,8 +115,7 @@ class BattleSession:
         self.collector = SessionFrameCollector(locked_panel=mode == "ai-vs-ai")
 
         player_name = "Jugador" if mode == "human-vs-ai" else "IA 1"
-        team1 = build_random_team(player_name, team_size, self.rng)
-        team2 = build_random_team("IA 2", team_size, self.rng)
+        team1, team2 = build_balanced_teams(player_name, "IA 2", team_size, self.rng)
         self.state = BattleState(team1, team2)
         self.agents = [self._build_player_agent(), self._build_ai_agent()]
         self.engine = BattleEngine(self.state, self.agents, ui=self.collector, rng=self.rng)

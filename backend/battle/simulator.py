@@ -130,9 +130,24 @@ def simulate_turn(
 
     ordered = sorted(actions, key=_sort_key)
 
+    # Registrar qué Pokémon estaba activo al inicio del turno para cada jugador.
+    # Si un Pokémon muere por el ataque del rival (va primero por velocidad) y el
+    # simulador hace auto-switch, el Pokémon de reemplazo NO debe ejecutar la acción
+    # que había elegido el Pokémon caído — ese ataque se cancela.
+    initial_active_idx = [cloned.teams[0].active_index, cloned.teams[1].active_index]
+
     for player_idx, action in ordered:
         if cloned.battle_over():
             break
+
+        # Cancelar un movimiento si el Pokémon que lo eligió ya cayó y fue reemplazado
+        if action.action_type == "move":
+            current_idx = cloned.teams[player_idx].active_index
+            original_pokemon = cloned.teams[player_idx].pokemons[initial_active_idx[player_idx]]
+            if current_idx != initial_active_idx[player_idx] and original_pokemon.is_fainted():
+                _auto_switch_fainted(cloned, 1 - player_idx)
+                continue
+
         simulate_action(cloned, player_idx, action, rng)
         # Resolver cambio forzado del oponente tras debilitamiento
         _auto_switch_fainted(cloned, 1 - player_idx)

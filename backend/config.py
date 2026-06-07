@@ -35,9 +35,13 @@ _BEST_WEIGHTS_FILE = _RESULTS_DIR / "best_weights.json"
 MANUAL_WEIGHTS: list[float] = [0.25, 0.35, 0.05, 0.2, 0.15]
 
 # Profundidad de búsqueda Minimax
-# Profundidad 3 permite ver 3 turnos completos adelante (vs 2 anteriores).
-# Con alpha-beta y top_k=6 el costo práctico es ~1000-5000 nodos vs ~300 de depth=2.
-MINIMAX_DEPTH: int = 3
+# depth=4 + top_k=5: ve 4 turnos completos adelante (~14k nodos, ~1.8s por turno).
+# Comparativa medida en hardware local:
+#   depth=3 top_k=6: 0.6s  4,656 nodos  ← anterior
+#   depth=4 top_k=5: 1.8s 14,118 nodos  ← actual (sweet spot calidad/velocidad)
+#   depth=4 top_k=6: 5.5s 44,708 nodos  ← demasiado lento
+#   depth=5:         ~50s ~400k  nodos  ← inviable en juego interactivo
+MINIMAX_DEPTH: int = 4
 
 # Rangos válidos para validación de pesos
 _WEIGHT_MIN = 0.0

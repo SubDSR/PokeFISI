@@ -6,7 +6,7 @@ from pathlib import Path
 
 from backend.agents.labels import build_agent_labels
 from backend.agents import HeuristicAgent, HumanAgent, MinimaxAgent, RandomAgent
-from backend.battle import BattleEngine, BattleState, build_random_team
+from backend.battle import BattleEngine, BattleState, build_balanced_teams, build_random_team
 from backend.config import MANUAL_WEIGHTS, MINIMAX_DEPTH, load_agent_weights
 from backend.experiments import run_experiment
 from backend.server import run_server
@@ -44,8 +44,7 @@ def build_ui(args):
 def run_single_battle(args) -> None:
     rng = random.Random(args.seed)
     trainer1_name, trainer2_name = build_agent_labels(args.agent1, args.agent2)
-    team1 = build_random_team(trainer1_name, args.team_size, rng)
-    team2 = build_random_team(trainer2_name, args.team_size, rng)
+    team1, team2 = build_balanced_teams(trainer1_name, trainer2_name, args.team_size, rng)
     state = BattleState(team1, team2)
     agents = [create_agent(args.agent1, rng), create_agent(args.agent2, rng)]
     ui = build_ui(args)
