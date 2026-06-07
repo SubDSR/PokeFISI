@@ -109,5 +109,15 @@ MOVEDEX: dict[str, MoveData] = {
     "psychic":      MoveData("psychic",      "Psychic",        90,  1.0,  "psychic",  "Onda mental de gran potencia.",                    10),
 
     # ── GHOST ──────────────────────────────────────────────────────────
+    "lick":         MoveData("lick",         "Lick",           30,  1.0,  "ghost",    "Lenguetazo fantasmal de corto alcance.",          30),
     "shadowball":   MoveData("shadowball",   "Shadow Ball",    80,  1.0,  "ghost",    "Esfera oscura de energia.",                        15),
+
+    # ── BUG ────────────────────────────────────────────────────────────
+    "silverwind":   MoveData("silverwind",   "Silver Wind",    60,  1.0,  "bug",      "Viento insecto de brillo metalico.",               5),
+    "signalbeam":   MoveData("signalbeam",   "Signal Beam",    75,  1.0,  "bug",      "Haz insecto de energia concentrada.",             15),
+    "pinmissile":   MoveData("pinmissile",   "Pin Missile",    25,  0.95, "bug",      "Rafaga de puas veloces.",                          20),
+
+    # ── DRAGON ─────────────────────────────────────────────────────────
+    "dragonbreath": MoveData("dragonbreath", "Dragon Breath",  60,  1.0,  "dragon",   "Aliento draconico cargado de poder.",             20),
+    "twister":      MoveData("twister",      "Twister",        40,  1.0,  "dragon",   "Torbellino draconico de corta potencia.",         20),
 }

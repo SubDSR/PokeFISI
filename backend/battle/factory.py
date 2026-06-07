@@ -11,14 +11,11 @@ from backend.data.types import get_type_multiplier, parse_types
 
 # ─── Clasificación por Tier de potencia (BST = HP + ATK + DEF + SPD) ─────────
 #
-# TIER A (≥225): Pokémon más fuertes — Mankey, Growlithe, Machop, Slowpoke,
-#                Doduo, Geodude, Pidgeotto, Sandshrew, Ponyta
-# TIER B (195-224): Potencia media — Charmander, Squirtle, Bellsprout, Spearow,
-#                   Psyduck, Meowth, Seel, Venonat, Pikachu, Poliwag
-# TIER C (<195):  Más débiles — Abra, Magnemite, Oddish, Vulpix, Paras,
-#                 Tentacool, Bulbasaur, Nidoran M/F, Rattata, Ekans
+# TIER A (≥225): Pokémon más fuertes.
+# TIER B (195-224): Potencia media.
+# TIER C (<195): Pokémon más ligeros.
 #
-# Equipo de 3: 1 de cada tier → diferencia máxima de BST ≈ 60 pts entre equipos.
+# Equipo de 3: 1 de cada tier.
 # Equipo de 4: 1 Tier A + 2 Tier B + 1 Tier C.
 
 def _bst(species_id: str) -> int:
@@ -120,27 +117,40 @@ def build_team_from_species(
 
 # ─── Selección de especies balanceadas ────────────────────────────────────────
 
+def _draw_species_candidates(
+    pools: list[list[str]],
+    picks_per_pool: list[int],
+    rng: random.Random,
+) -> list[str]:
+    candidates: list[str] = []
+    for pool, n in zip(pools, picks_per_pool):
+        if n == 1:
+            candidates.append(rng.choice(pool))
+        else:
+            candidates.extend(rng.sample(pool, n))
+    return candidates
+
+
 def _select_species(
     pools: list[list[str]],
     picks_per_pool: list[int],
     rng: random.Random,
+    avoid_shared_weakness: bool,
+    attempts: int = 250,
 ) -> list[str] | None:
-    """
-    Intenta seleccionar Pokémon de los pools dado el número de picks por pool.
-    Aplica Regla 2 (tipos únicos) y Regla 3 (sin debilidad compartida).
-    Retorna lista de IDs o None si no encontró combinación válida en 100 intentos.
-    """
-    for _ in range(100):
-        candidates: list[str] = []
-        for pool, n in zip(pools, picks_per_pool):
-            if n == 1:
-                candidates.append(rng.choice(pool))
-            else:
-                candidates.extend(rng.sample(pool, n))
+    """Recolecta combinaciones válidas y elige una al azar para mejorar variedad."""
+    valid: dict[tuple[str, ...], list[str]] = {}
+    for _ in range(attempts):
+        candidates = _draw_species_candidates(pools, picks_per_pool, rng)
+        if not _unique_primary_types(candidates):
+            continue
+        if avoid_shared_weakness and _has_shared_weakness(candidates):
+            continue
+        valid.setdefault(tuple(sorted(candidates)), candidates)
 
-        if _unique_primary_types(candidates) and not _has_shared_weakness(candidates):
-            return candidates
-    return None
+    if not valid:
+        return None
+    return list(rng.choice(list(valid.values())))
 
 
 def _select_species_relaxed(
@@ -148,29 +158,11 @@ def _select_species_relaxed(
     picks_per_pool: list[int],
     rng: random.Random,
 ) -> list[str]:
-    """
-    Igual que _select_species pero sin Regla 3 (solo Regla 2).
-    Fallback cuando la combinación de Reglas 2+3 es imposible.
-    """
-    for _ in range(100):
-        candidates: list[str] = []
-        for pool, n in zip(pools, picks_per_pool):
-            if n == 1:
-                candidates.append(rng.choice(pool))
-            else:
-                candidates.extend(rng.sample(pool, n))
+    species_ids = _select_species(pools, picks_per_pool, rng, avoid_shared_weakness=False)
+    if species_ids is not None:
+        return species_ids
 
-        if _unique_primary_types(candidates):
-            return candidates
-
-    # Último recurso: solo Regla 1 (un Pokémon de cada tier)
-    candidates = []
-    for pool, n in zip(pools, picks_per_pool):
-        if n == 1:
-            candidates.append(rng.choice(pool))
-        else:
-            candidates.extend(rng.sample(pool, min(n, len(pool))))
-    return candidates
+    return _draw_species_candidates(pools, picks_per_pool, rng)
 
 
 # ─── API pública ──────────────────────────────────────────────────────────────
@@ -189,8 +181,8 @@ def build_random_team(
     Regla 4 — Al menos 1 movimiento STAB garantizado por Pokémon.
 
     Degradación progresiva si los constraints no se pueden satisfacer:
-      1° intento: Reglas 1+2+3   (100 tries)
-      2° intento: Reglas 1+2     (100 tries)
+      1° intento: Reglas 1+2+3   (250 tries)
+      2° intento: Reglas 1+2     (250 tries)
       3° intento: Solo Regla 1   (1 try)
     """
     if team_size not in (3, 4):
@@ -216,7 +208,7 @@ def build_random_team(
             selected = rng.sample(available, 4)
             return build_team_from_species(trainer_name, selected, rng)
 
-    species_ids = _select_species(pools, picks, rng)
+    species_ids = _select_species(pools, picks, rng, avoid_shared_weakness=True)
     if species_ids is None:
         species_ids = _select_species_relaxed(pools, picks, rng)
 
