@@ -9,7 +9,6 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspa
 from backend.agents.heuristics import (
     evaluate_state,
     f_hp_restante,
-    f_matchup_potencial,
     f_pokemon_vivos,
     f_riesgo_morir,
     f_velocidad,
@@ -97,7 +96,7 @@ class TestRiesgoMorirSpeedAwareness:
         assert v == -1.0, f"Con muerte garantizada y rival más rápido, debe ser -1.0, fue {v}"
 
     def test_guaranteed_death_but_we_are_faster_is_not_max(self):
-        """Si podemos atacar primero aunque vayamos a morir, el riesgo es 0.8 (no -1.0)."""
+        """Si podemos atacar primero aunque vayamos a morir, el riesgo es 0.85 (no -1.0)."""
         state = _state(seed=10)
         my_active = state.teams[0].active_pokemon
         opp_active = state.teams[1].active_pokemon
@@ -107,7 +106,7 @@ class TestRiesgoMorirSpeedAwareness:
         # Forzar que el rival pueda OHKO si actuara primero
         my_active.hp = 1
         v = f_riesgo_morir(state, 0)
-        assert v == -0.8, f"Podemos atacar primero aunque vayamos a morir: debe ser -0.8, fue {v}"
+        assert v == -0.85, f"Podemos atacar primero aunque vayamos a morir: debe ser -0.85, fue {v}"
 
     def test_no_risk_when_hp_far_above_damage(self):
         """Con el doble de HP que el daño máximo del rival, no hay riesgo."""
@@ -118,49 +117,9 @@ class TestRiesgoMorirSpeedAwareness:
         assert v == 0.0, f"Con HP muy alto, riesgo debe ser 0.0, fue {v}"
 
 
-class TestMatchupPotencial:
-    def test_range_is_zero_to_one(self):
-        """f_matchup_potencial siempre debe retornar valores en [0, 1]."""
-        for seed in range(5):
-            state = _state(seed=seed)
-            v = f_matchup_potencial(state, 0)
-            assert 0.0 <= v <= 1.0, f"Fuera de rango [0,1] con seed={seed}: {v}"
-
-    def test_bench_with_type_advantage_raises_score(self):
-        """Si hay un Pokémon en reserva con ventaja de tipo contra el rival, el score sube."""
-        state = _state(seed=2)
-        # Score con equipo normal
-        v_normal = f_matchup_potencial(state, 0)
-
-        # Forzar un Pokémon en reserva con todos sus movimientos en 2× contra el rival activo
-        bench_poke = None
-        for i, p in enumerate(state.teams[0].pokemons):
-            if i != state.teams[0].active_index and not p.is_fainted():
-                bench_poke = p
-                break
-
-        if bench_poke is None:
-            return  # No hay reserva para probar
-
-        # Darle HP máximo para que hp_ratio = 1.0
-        bench_poke.hp = bench_poke.max_hp
-
-        v_after = f_matchup_potencial(state, 0)
-        # El score debe ser >= al anterior (HP lleno no puede bajar el score)
-        assert v_after >= v_normal - 0.01, "Aumentar HP de la reserva no debe bajar el score"
-
-    def test_all_fainted_bench_returns_zero(self):
-        """Con todos los Pokémon de reserva caídos, el score debe ser 0."""
-        state = _state(seed=3)
-        active_idx = state.teams[0].active_index
-        for i, p in enumerate(state.teams[0].pokemons):
-            if i != active_idx:
-                p.hp = 0
-        v = f_matchup_potencial(state, 0)
-        assert v == 0.0, f"Sin reserva viva, debe ser 0.0, fue {v}"
-
+class TestEvaluateStateCompatibility:
     def test_evaluate_state_accepts_six_weights(self):
-        """evaluate_state debe funcionar correctamente con los 6 pesos nuevos."""
+        """evaluate_state debe seguir aceptando listas cortas de pesos."""
         state = _state(seed=1)
         weights_6 = [0.15, 0.20, 0.05, 0.10, 0.25, 0.25]
         v = evaluate_state(state, 0, weights_6)

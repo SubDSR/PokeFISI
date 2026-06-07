@@ -32,7 +32,7 @@ from backend.agents.base import BaseAgent
 from backend.agents.heuristics import evaluate_state
 from backend.battle.damage import calculate_damage
 from backend.battle.models import BattleAction
-from backend.battle.simulator import simulate_turn
+from backend.battle.simulator import simulate_action, simulate_turn
 from backend.battle.state import BattleState
 from backend.data.types import get_type_multiplier
 
@@ -45,18 +45,18 @@ class MinimaxAgent(BaseAgent):
     def __init__(
         self,
         name: str = "MinimaxAgent",
-        depth: int = 2,
+        depth: int = 3,
         weights: list[float] | None = None,
         enable_transposition_table: bool = True,
-        top_k_actions: int = 5,
+        top_k_actions: int = 4,
         rng: random.Random | None = None,
     ) -> None:
         super().__init__(name)
         self.depth = max(1, depth)
-        self.weights = list(weights) if weights else [0.15, 0.20, 0.05, 0.10, 0.25, 0.25]
+        self.weights = list(weights) if weights else [0.20, 0.10, 0.05, 0.15, 0.30, 0.10, 0.10]
         self.enable_transposition_table = enable_transposition_table
         self.top_k_actions = top_k_actions
-        self._sim_rng = rng or random.Random(42)
+        self._rng_seed: int = rng.randrange(1 << 31) if rng else 42
 
         self._nodes: int = 0
         self._pruned: int = 0
@@ -98,7 +98,8 @@ class MinimaxAgent(BaseAgent):
         if not opp_legal:
             return legal_actions[0]
 
-        ordered_mine = self._rank_actions(state, legal_actions, player_index, maximize=True)
+        ranking_state_mine = self._get_ranking_state_for_my_actions(state, opp_legal)
+        ordered_mine = self._rank_actions(ranking_state_mine, legal_actions, player_index, maximize=True)
         ordered_mine = ordered_mine[: self.top_k_actions]
 
         for action in ordered_mine:
@@ -148,8 +149,18 @@ class MinimaxAgent(BaseAgent):
         quedaba en la ultima posicion y podia ser excluido por top_k, haciendo creer al Minimax
         que ciertas posiciones eran seguras cuando no lo eran.
         """
+        # Bug 6: si el agente hace switch, el oponente enfrentará un Pokémon diferente.
+        # Rankear sus acciones sobre el estado post-switch para no excluir por top_k
+        # ataques que serían devastadores contra el entrante pero parecían débiles antes.
+        ranking_state = state
+        if my_action.action_type == "switch":
+            temp = state.clone()
+            branch_rng = random.Random(self._rng_seed ^ self._hash_state(state))
+            simulate_action(temp, self._player_index, my_action, branch_rng)
+            ranking_state = temp
+
         ordered_opp = self._rank_actions(
-            state, opp_legal, 1 - self._player_index, maximize=True
+            ranking_state, opp_legal, 1 - self._player_index, maximize=True
         )
         ordered_opp = ordered_opp[: self.top_k_actions]
 
@@ -194,7 +205,8 @@ class MinimaxAgent(BaseAgent):
         if not my_legal or not opp_legal:
             return evaluate_state(state, self._player_index, self.weights)
 
-        ordered_mine = self._rank_actions(state, my_legal, self._player_index, maximize=True)
+        ranking_state_mine = self._get_ranking_state_for_my_actions(state, opp_legal)
+        ordered_mine = self._rank_actions(ranking_state_mine, my_legal, self._player_index, maximize=True)
         ordered_mine = ordered_mine[: self.top_k_actions]
 
         best = -_INF
@@ -251,20 +263,48 @@ class MinimaxAgent(BaseAgent):
             if not move.has_pp():
                 return -10.0
 
-            # Si el rival es más rápido y puede OHKO, el atacante muere antes de ejecutar el movimiento
-            if defender.speed > attacker.speed:
+            type_mod = get_type_multiplier(move.move_type, defender.pokemon_type)
+            if type_mod == 0.0:
+                return -5.0  # movimiento inútil (inmunidad de tipo)
+
+            expected_dmg = calculate_damage(attacker, defender, move) * move.accuracy
+
+            if expected_dmg >= defender.hp:
+                # El KO solo tiene valor si el movimiento llega a ejecutarse.
+                # Si el rival va primero y puede OHKOarme, muero antes de atacar
+                # → el turno se cancela → el KO es ilusorio y no debe premiarse.
+                if attacker.speed >= defender.speed:
+                    return 2.0  # voy primero: KO garantizado y real
                 max_opp_dmg = max(
                     (calculate_damage(defender, attacker, m) * m.accuracy
                      for m in defender.moves if m.has_pp()),
                     default=0.0,
                 )
                 if max_opp_dmg >= attacker.hp:
-                    return -2.0  # Muerte garantizada — cualquier switch tiene prioridad
+                    return -2.0  # rival va primero y me mata: movimiento nunca se ejecuta
+                return 2.0  # rival va primero pero no puede OHKOarme: KO real
 
-            type_mod = get_type_multiplier(move.move_type, defender.pokemon_type)
-            # Daño esperado normalizado por HP del defensor
-            expected_dmg = calculate_damage(attacker, defender, move) * move.accuracy * type_mod
-            return expected_dmg / max(1, defender.max_hp)
+            # Solo penalizamos nuestras propias acciones cuando el rival va primero y
+            # puede matarnos sin que lo matemos nosotros (Bugs 4+1 del prompt anterior).
+            if acting_player == self._player_index and defender.speed > attacker.speed:
+                max_opp_dmg = max(
+                    (calculate_damage(defender, attacker, m) * m.accuracy
+                     for m in defender.moves if m.has_pp()),
+                    default=0.0,
+                )
+                if max_opp_dmg >= attacker.hp:
+                    return -2.0  # muere antes de actuar sin matar al rival
+
+            base_score = expected_dmg / max(1, defender.max_hp)
+
+            # Penalizar ataques de tipo resistido para que nunca superen a ataques
+            # neutros de mayor poder base, incluso considerando mejor precisión.
+            # Sin esto, BubbleBeam (acc=1.0, 0.5×) puede superar a ZenHeadbutt
+            # (acc=0.9, 1.0×) cuando el Minimax prioriza certeza sobre daño bruto.
+            if type_mod < 1.0:
+                base_score *= type_mod
+
+            return base_score
 
         if action.action_type == "switch":
             return self._score_switch(action, my_team, opp_team)
@@ -278,14 +318,16 @@ class MinimaxAgent(BaseAgent):
         """Evalúa la calidad de un cambio considerando ventaja de tipo.
 
         Componentes:
-          - Penalización previa: si el entrante muere garantizadamente en el siguiente
-            turno (rival más rápido + puede OHKO), retorna -2.0 de inmediato.
+          - Penalización switch suicida (-2.0): entrante muere garantizadamente Y el
+            activo actual no muere este turno (switch genuinamente evitable).
+          - Penalización suave (hasta -0.5): todos los switches son arriesgados porque
+            el activo actual también moriría; el agente elige el menos malo.
           - type_advantage (peso 0.35): multiplicador de tipo del mejor movimiento
-            del Pokémon entrante vs el rival activo. Normalizado a [0, 1] dividiendo
-            entre 4.0 (máximo real con doble tipo: 2x × 2x = 4x).
+            del Pokémon entrante vs el rival activo. Normalizado a [0, 1].
           - hp_ratio (peso 0.25): HP actual / HP máximo del Pokémon entrante.
-          - vulnerability_score (peso 0.40): 1 − (daño_recibible / 4.0). Penaliza
-            fuertemente los switches suicidas por tipo.
+          - vulnerability_score (peso 0.25): 1 − vulnerabilidad ante el activo rival.
+          - team_vulnerability (peso 0.15): 1 − vulnerabilidad ante TODO el equipo rival.
+            Penaliza switches que son "seguros ahora" pero crean matchups futuros malos.
 
         El score final está en [-2.0, 1.0].
         """
@@ -294,9 +336,21 @@ class MinimaxAgent(BaseAgent):
 
         incoming = my_team.pokemons[action.index]
         opp_active = opp_team.active_pokemon
+        current_active = my_team.active_pokemon
 
-        # Penalización directa: switch suicida garantizado
-        # Si el rival es más rápido Y puede OHKO al entrante → este switch no tiene sentido
+        # Bug 2: detectar si el activo actual también va a morir este turno.
+        # Si es así, ningún switch es seguro y penalizar con -2.0 bloquea todas las opciones.
+        current_also_dies = False
+        if opp_active.speed > current_active.speed:
+            opp_vs_current = max(
+                (calculate_damage(opp_active, current_active, m) * m.accuracy
+                 for m in opp_active.moves if m.has_pp()),
+                default=0.0,
+            )
+            if opp_vs_current >= current_active.hp:
+                current_also_dies = True
+
+        # Penalización por switch suicida garantizado
         if opp_active.speed > incoming.speed:
             opp_best_dmg = max(
                 (calculate_damage(opp_active, incoming, m) * m.accuracy
@@ -304,9 +358,13 @@ class MinimaxAgent(BaseAgent):
                 default=0.0,
             )
             if opp_best_dmg >= incoming.hp:
-                return -2.0  # Enviar aquí = perder ese Pokémon sin beneficio
+                if current_also_dies:
+                    # Activo también muere: usar penalización proporcional para elegir el menos malo
+                    damage_ratio = min(1.0, opp_best_dmg / max(1, incoming.hp))
+                    return -0.5 * damage_ratio
+                return -2.0  # Switch genuinamente suicida y evitable
 
-        # Ventaja de tipo: mejor multiplicador de los movimientos del entrante
+        # Ventaja de tipo: mejor multiplicador del entrante
         best_mult_incoming = max(
             (get_type_multiplier(m.move_type, opp_active.pokemon_type)
              for m in incoming.moves if m.has_pp()),
@@ -317,20 +375,91 @@ class MinimaxAgent(BaseAgent):
         # HP del entrante normalizado
         hp_ratio = incoming.hp / max(1, incoming.max_hp)
 
-        # Vulnerabilidad del entrante ante el rival
+        # Vulnerabilidad ante el activo rival
         best_mult_opp_vs_incoming = max(
             (get_type_multiplier(m.move_type, incoming.pokemon_type)
              for m in opp_active.moves if m.has_pp()),
             default=1.0,
         )
-        vulnerability = min(best_mult_opp_vs_incoming / 4.0, 1.0)
-        vulnerability_score = 1.0 - vulnerability
+        vulnerability_score = 1.0 - min(best_mult_opp_vs_incoming / 4.0, 1.0)
 
-        return 0.35 * type_advantage + 0.25 * hp_ratio + 0.40 * vulnerability_score
+        # Vulnerabilidad ante TODO el equipo rival
+        opp_alive = [p for p in opp_team.pokemons if not p.is_fainted()]
+        worst_opp_mult = max(
+            (get_type_multiplier(m.move_type, incoming.pokemon_type)
+             for opp in opp_alive
+             for m in opp.moves if m.has_pp()),
+            default=1.0,
+        )
+        team_vulnerability = 1.0 - min(worst_opp_mult / 4.0, 1.0)
+
+        # Penaliza cambiar a un Pokémon que también pierde el matchup actual.
+        incoming_best_dmg = max(
+            (calculate_damage(incoming, opp_active, m) * m.accuracy
+             for m in incoming.moves if m.has_pp()),
+            default=0.0,
+        )
+        opp_best_dmg_vs_incoming = max(
+            (calculate_damage(opp_active, incoming, m) * m.accuracy
+             for m in opp_active.moves if m.has_pp()),
+            default=0.0,
+        )
+        dmg_ratio_in = incoming_best_dmg / max(1, opp_active.max_hp)
+        dmg_ratio_out = opp_best_dmg_vs_incoming / max(1, incoming.max_hp)
+        matchup_gain = max(-1.0, min(1.0, dmg_ratio_in - dmg_ratio_out))
+
+        return (0.28 * type_advantage
+                + 0.20 * hp_ratio
+                + 0.20 * vulnerability_score
+                + 0.12 * team_vulnerability
+                + 0.20 * matchup_gain)
 
     # ──────────────────────────────────────────
     # Helpers
     # ──────────────────────────────────────────
+
+    def _get_ranking_state_for_my_actions(
+        self,
+        state: BattleState,
+        opp_legal: list[BattleAction],
+    ) -> BattleState:
+        """Estado representativo para rankear las acciones propias del agente.
+
+        Los switches resuelven antes que los ataques. Si el rival puede cambiar,
+        el Pokémon entrante estará en campo cuando el agente ataque, no el saliente.
+        Sin este ajuste, el ranking puede poner en top_k ataques con ventaja de tipo
+        contra el Pokémon saliente que resultan perjudiciales contra el entrante.
+
+        Estrategia: simular el switch rival más amenazante (el que envía al Pokémon
+        con mayor daño potencial al activo propio) y usar ese estado solo para rankear.
+        La simulación real en _simulate() sigue usando el estado original.
+        """
+        opp_switches = [a for a in opp_legal if a.action_type == "switch"]
+        if not opp_switches:
+            return state
+
+        my_active = state.team_of(self._player_index).active_pokemon
+        opp_team = state.opponent_of(self._player_index)
+
+        best_switch_state = state
+        best_threat = 0.0
+        for switch_action in opp_switches:
+            incoming = opp_team.pokemons[switch_action.index]
+            if incoming.is_fainted():
+                continue
+            threat = max(
+                (calculate_damage(incoming, my_active, m) * m.accuracy
+                 for m in incoming.moves if m.has_pp()),
+                default=0.0,
+            )
+            if threat > best_threat:
+                best_threat = threat
+                temp = state.clone()
+                branch_rng = random.Random(self._rng_seed)
+                simulate_action(temp, 1 - self._player_index, switch_action, branch_rng)
+                best_switch_state = temp
+
+        return best_switch_state
 
     def _simulate(
         self,
@@ -338,10 +467,17 @@ class MinimaxAgent(BaseAgent):
         my_action: BattleAction,
         opp_action: BattleAction,
     ) -> BattleState:
-        """Envuelve simulate_turn asignando acciones según player_index."""
+        """Simula un turno usando un rng derivado del estado actual.
+
+        Usar un rng derivado del hash del estado garantiza que dos ramas que
+        lleguen al mismo estado por caminos distintos usen el mismo rng,
+        eliminando el sesgo por orden de exploración que afecta movimientos
+        con precisión < 1.0 (como ZenHeadbutt acc=0.9 vs BubbleBeam acc=1.0).
+        """
+        branch_rng = random.Random(self._rng_seed ^ self._hash_state(state))
         if self._player_index == 0:
-            return simulate_turn(state, my_action, opp_action, self._sim_rng)
-        return simulate_turn(state, opp_action, my_action, self._sim_rng)
+            return simulate_turn(state, my_action, opp_action, branch_rng)
+        return simulate_turn(state, opp_action, my_action, branch_rng)
 
     def _terminal_value(self, state: BattleState) -> float:
         winner = state.winner()

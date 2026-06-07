@@ -13,7 +13,7 @@ import math
 from backend.battle.damage import calculate_damage
 from backend.battle.models import BattlePokemon
 from backend.battle.state import BattleState
-from backend.data.types import get_type_multiplier, parse_types
+from backend.data.types import get_type_multiplier
 
 
 # ──────────────────────────────────────────────
@@ -92,20 +92,25 @@ def f_velocidad(state: BattleState, player_index: int) -> float:
 
 
 def f_hp_restante(state: BattleState, player_index: int) -> float:
-    """Ventaja de HP total normalizado del equipo propio vs rival.
+    """Ventaja de HP ponderado del equipo propio vs rival.
 
-    Fórmula: (hp_ratio_propio) - (hp_ratio_rival)
+    El Pokémon activo pesa 2× respecto a la banca porque es el que está en
+    riesgo inmediato. Sin este peso, perder el activo tiene el mismo impacto
+    en el ratio que perder un Pokémon de reserva, suavizando demasiado la señal.
     Rango: [-1, 1]
     """
-    my_team = state.team_of(player_index)
-    opp_team = state.opponent_of(player_index)
+    def _weighted_hp_ratio(team) -> float:
+        active = team.active_pokemon
+        active_ratio = active.hp / max(1, active.max_hp)
+        bench = [p for i, p in enumerate(team.pokemons)
+                 if i != team.active_index and not p.is_fainted()]
+        if not bench:
+            return active_ratio
+        bench_ratio = sum(p.hp / max(1, p.max_hp) for p in bench) / len(bench)
+        return (2 * active_ratio + bench_ratio) / 3
 
-    def _team_hp_ratio(team) -> float:
-        total_hp = sum(p.hp for p in team.pokemons)
-        total_max = sum(p.max_hp for p in team.pokemons)
-        return total_hp / max(1, total_max)
-
-    return _team_hp_ratio(my_team) - _team_hp_ratio(opp_team)
+    return _weighted_hp_ratio(state.team_of(player_index)) - \
+           _weighted_hp_ratio(state.opponent_of(player_index))
 
 
 def f_riesgo_morir(state: BattleState, player_index: int) -> float:
@@ -113,15 +118,18 @@ def f_riesgo_morir(state: BattleState, player_index: int) -> float:
 
     Cálculo:
       1. Daño máximo que puede infligir el rival con su mejor movimiento.
-      2. Si hp_actual ≤ daño_máximo Y rival más rápido → muerte garantizada antes de atacar → -1.0
-      3. Si hp_actual ≤ daño_máximo (pero propio más rápido) → riesgo = 0.8 (puede atacar primero)
+      2. Si hp_actual ≤ daño_máximo Y rival más rápido → riesgo = 1.0 (muerte antes de atacar)
+      3. Si hp_actual ≤ daño_máximo (pero propio más rápido) → riesgo = 0.85 (puede atacar primero)
       4. Si hp_actual ≥ 2 × daño_máximo → riesgo = 0.0
       5. Interpolación lineal entre esos extremos; si rival es más rápido → × 1.5 (cap 1.0).
+      6. Bug B: si riesgo ≥ 0.85 y hay un Pokémon de banca que absorbería el golpe,
+         penalizar 0.15 extra (el agente está desperdiciando el turno al quedarse).
 
     Retorno normalizado a [-1, 0]: valores negativos son penalizaciones.
     Rango: [-1, 0]
     """
-    my_active = state.team_of(player_index).active_pokemon
+    my_team = state.team_of(player_index)
+    my_active = my_team.active_pokemon
     opp_active = state.opponent_of(player_index).active_pokemon
 
     max_opp_damage = _max_expected_damage(opp_active, my_active)
@@ -133,8 +141,7 @@ def f_riesgo_morir(state: BattleState, player_index: int) -> float:
     opp_faster = opp_active.speed > my_active.speed
 
     if hp <= max_opp_damage:
-        # Muerte garantizada: si el rival es más rápido, el ataque propio nunca ocurre
-        riesgo = 1.0 if opp_faster else 0.8
+        riesgo = 1.0 if opp_faster else 0.85
     elif hp >= 2 * max_opp_damage:
         riesgo = 0.0
     else:
@@ -142,41 +149,20 @@ def f_riesgo_morir(state: BattleState, player_index: int) -> float:
         if opp_faster:
             riesgo = min(1.0, riesgo * 1.5)
 
+    # Bug B: penalizar el "sacrificio gratuito": quedarse cuando hay banca que sobreviviría.
+    # Sin este bonus, hacer daño antes de morir puede superar la penalización base,
+    # porque f_hp_restante sube al dañar al rival aunque el activo muera después.
+    if riesgo >= 0.85:
+        bench = [p for i, p in enumerate(my_team.pokemons)
+                 if i != my_team.active_index and not p.is_fainted()]
+        if bench:
+            min_bench_dmg_ratio = min(
+                max_opp_damage / max(1, p.hp) for p in bench
+            )
+            if min_bench_dmg_ratio < 0.7:  # algún Pokémon de banca sobreviviría con >30% HP
+                riesgo = min(1.0, riesgo + 0.15)
+
     return -riesgo  # penalización negativa
-
-
-def f_matchup_potencial(state: BattleState, player_index: int) -> float:
-    """Potencial continuo de los Pokémon en reserva (usa hp_ratio lineal).
-
-    Mantenida para compatibilidad con tests. La función activa en evaluate_state
-    es f_win_condition, que usa un umbral de supervivencia binario más preciso.
-    Rango: [0, 1]
-    """
-    my_team = state.team_of(player_index)
-    opp_team = state.opponent_of(player_index)
-
-    bench = [
-        p for i, p in enumerate(my_team.pokemons)
-        if not p.is_fainted() and i != my_team.active_index
-    ]
-    opp_alive = [p for p in opp_team.pokemons if not p.is_fainted()]
-
-    if not bench or not opp_alive:
-        return 0.0
-
-    total = 0.0
-    for bench_poke in bench:
-        hp_ratio = bench_poke.hp / max(1, bench_poke.max_hp)
-        best_mult = max(
-            (get_type_multiplier(m.move_type, opp_poke.pokemon_type)
-             for opp_poke in opp_alive
-             for m in bench_poke.moves if m.has_pp()),
-            default=1.0,
-        )
-        type_score = max(0.0, best_mult - 1.0)
-        total += hp_ratio * type_score
-
-    return min(1.0, total / max(1, len(bench)))
 
 
 def f_win_condition(state: BattleState, player_index: int) -> float:
@@ -225,11 +211,41 @@ def f_win_condition(state: BattleState, player_index: int) -> float:
     return min(1.0, viable / max(1, len(bench)))
 
 
+def f_accion_util(state: BattleState, player_index: int) -> float:
+    """Diferencia de daño esperado normalizado entre el activo propio y el rival.
+
+    Cuando el activo propio no puede infligir daño significativo (matchup resistido),
+    la señal baja, indicando que un cambio tiene sentido. Si el entrante tampoco puede
+    atacar bien, el score se mantiene bajo y el agente ve que ninguna opción es buena,
+    que es la verdad táctica — reduciendo el ping-pong de switches improductivos.
+
+    Rango: [-1, 1]
+    """
+    my_active = state.team_of(player_index).active_pokemon
+    opp_active = state.opponent_of(player_index).active_pokemon
+
+    my_best_dmg = max(
+        (calculate_damage(my_active, opp_active, m) * m.accuracy
+         for m in my_active.moves if m.has_pp()),
+        default=0.0,
+    )
+    opp_best_dmg = max(
+        (calculate_damage(opp_active, my_active, m) * m.accuracy
+         for m in opp_active.moves if m.has_pp()),
+        default=0.0,
+    )
+
+    my_dmg_ratio = my_best_dmg / max(1, opp_active.max_hp)
+    opp_dmg_ratio = opp_best_dmg / max(1, my_active.max_hp)
+
+    return max(-1.0, min(1.0, my_dmg_ratio - opp_dmg_ratio))
+
+
 # ──────────────────────────────────────────────
 # Función heurística compuesta
 # ──────────────────────────────────────────────
 
-DEFAULT_WEIGHTS: list[float] = [0.15, 0.20, 0.05, 0.10, 0.25, 0.25]
+DEFAULT_WEIGHTS: list[float] = [0.20, 0.10, 0.05, 0.15, 0.30, 0.10, 0.10]
 
 WIN_VALUE = 1000.0
 LOSS_VALUE = -1000.0
@@ -245,10 +261,18 @@ def evaluate_state(
 
     h = W1·f_pokemon_vivos + W2·f_ventaja_tipo + W3·f_velocidad
       + W4·f_hp_restante + W5·f_riesgo_morir + W6·f_win_condition
+      + W7·f_accion_util
 
     Para estados terminales retorna ±1000 (sin evaluar factores).
     """
-    w = weights if weights is not None else DEFAULT_WEIGHTS
+    if weights is None:
+        w = DEFAULT_WEIGHTS
+    else:
+        # Compatibilidad con configuraciones antiguas de 6 pesos: el bonus
+        # de HP en banca adopta el peso por defecto en lugar de fallar.
+        w = list(weights[: len(DEFAULT_WEIGHTS)])
+        if len(w) < len(DEFAULT_WEIGHTS):
+            w.extend(DEFAULT_WEIGHTS[len(w):])
 
     if state.battle_over():
         winner = state.winner()
@@ -265,5 +289,6 @@ def evaluate_state(
     f4 = f_hp_restante(state, player_index)
     f5 = f_riesgo_morir(state, player_index)
     f6 = f_win_condition(state, player_index)
+    f7 = f_accion_util(state, player_index)
 
-    return w[0] * f1 + w[1] * f2 + w[2] * f3 + w[3] * f4 + w[4] * f5 + w[5] * f6
+    return w[0]*f1 + w[1]*f2 + w[2]*f3 + w[3]*f4 + w[4]*f5 + w[5]*f6 + w[6]*f7
