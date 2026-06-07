@@ -149,18 +149,27 @@ def f_riesgo_morir(state: BattleState, player_index: int) -> float:
         if opp_faster:
             riesgo = min(1.0, riesgo * 1.5)
 
-    # Bug B: penalizar el "sacrificio gratuito": quedarse cuando hay banca que sobreviviría.
-    # Sin este bonus, hacer daño antes de morir puede superar la penalización base,
-    # porque f_hp_restante sube al dañar al rival aunque el activo muera después.
+    # Bug B: penalizar el "sacrificio gratuito": quedarse cuando hay banca que sobreviviría
+    # Y tiene ventaja de tipo real. Sin la condición de ventaja de tipo, este bloque
+    # empuja a hacer switch incluso cuando la banca tampoco puede ganar el matchup,
+    # lo que provoca el bucle switch-ping-pong en desventaja terminal.
     if riesgo >= 0.85:
         bench = [p for i, p in enumerate(my_team.pokemons)
                  if i != my_team.active_index and not p.is_fainted()]
         if bench:
-            min_bench_dmg_ratio = min(
-                max_opp_damage / max(1, p.hp) for p in bench
-            )
-            if min_bench_dmg_ratio < 0.7:  # algún Pokémon de banca sobreviviría con >30% HP
-                riesgo = min(1.0, riesgo + 0.15)
+            opp_active = state.opponent_of(player_index).active_pokemon
+            for bench_p in bench:
+                dmg_ratio = max_opp_damage / max(1, bench_p.hp)
+                if dmg_ratio >= 0.7:
+                    continue  # bench_p tampoco sobreviviría bien
+                bench_type_adv = max(
+                    (get_type_multiplier(m.move_type, opp_active.pokemon_type)
+                     for m in bench_p.moves if m.has_pp()),
+                    default=1.0,
+                )
+                if bench_type_adv >= 1.5:  # ventaja de tipo real: el switch sí ayuda
+                    riesgo = min(1.0, riesgo + 0.15)
+                    break
 
     return -riesgo  # penalización negativa
 

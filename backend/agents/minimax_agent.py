@@ -63,6 +63,7 @@ class MinimaxAgent(BaseAgent):
         self._tt_hits: int = 0
         self._player_index: int = 0
         self._tt: dict[int, tuple[int, float]] = {}
+        self._last_action_type: str = ""  # tracks last chosen action type across turns
 
         self.last_choice_details: dict = {}
 
@@ -99,11 +100,17 @@ class MinimaxAgent(BaseAgent):
             return legal_actions[0]
 
         ranking_state_mine = self._get_ranking_state_for_my_actions(state, opp_legal)
-        ordered_mine = self._rank_actions(ranking_state_mine, legal_actions, player_index, maximize=True)
-        ordered_mine = ordered_mine[: self.top_k_actions]
+        ordered_mine = self._rank_actions(
+            ranking_state_mine, legal_actions, player_index, maximize=True,
+            prev_switch=(self._last_action_type == "switch"),
+        )
+        ordered_mine = self._apply_topk_with_move_guarantee(ordered_mine)
 
         for action in ordered_mine:
-            worst = self._minimize_over_opponent(state, action, opp_legal, alpha, beta, self.depth)
+            worst = self._minimize_over_opponent(
+                state, action, opp_legal, alpha, beta, self.depth,
+                next_prev_my_switch=(action.action_type == "switch"),
+            )
             if worst > best_val:
                 best_val = worst
                 best_action = action
@@ -112,6 +119,7 @@ class MinimaxAgent(BaseAgent):
                 self._pruned += 1
                 break
 
+        self._last_action_type = best_action.action_type
         elapsed = time.perf_counter() - t0
         self.last_choice_details = {
             "strategy": "minimax",
@@ -138,6 +146,7 @@ class MinimaxAgent(BaseAgent):
         alpha: float,
         beta: float,
         depth: int,
+        next_prev_my_switch: bool = False,
     ) -> float:
         """Para una acción propia fija, devuelve el valor mínimo que puede lograr el oponente.
 
@@ -169,7 +178,8 @@ class MinimaxAgent(BaseAgent):
 
         for opp_action in ordered_opp:
             new_state = self._simulate(state, my_action, opp_action)
-            val = self._search(new_state, depth - 1, alpha, inner_beta)
+            val = self._search(new_state, depth - 1, alpha, inner_beta,
+                               prev_my_switch=next_prev_my_switch)
 
             if val < worst:
                 worst = val
@@ -181,7 +191,8 @@ class MinimaxAgent(BaseAgent):
         return worst
 
     def _search(
-        self, state: BattleState, depth: int, alpha: float, beta: float
+        self, state: BattleState, depth: int, alpha: float, beta: float,
+        prev_my_switch: bool = False,
     ) -> float:
         """Minimax recursivo con poda alfa-beta desde la perspectiva del jugador."""
         self._nodes += 1
@@ -206,12 +217,18 @@ class MinimaxAgent(BaseAgent):
             return evaluate_state(state, self._player_index, self.weights)
 
         ranking_state_mine = self._get_ranking_state_for_my_actions(state, opp_legal)
-        ordered_mine = self._rank_actions(ranking_state_mine, my_legal, self._player_index, maximize=True)
-        ordered_mine = ordered_mine[: self.top_k_actions]
+        ordered_mine = self._rank_actions(
+            ranking_state_mine, my_legal, self._player_index, maximize=True,
+            prev_switch=prev_my_switch,
+        )
+        ordered_mine = self._apply_topk_with_move_guarantee(ordered_mine)
 
         best = -_INF
         for my_action in ordered_mine:
-            worst = self._minimize_over_opponent(state, my_action, opp_legal, alpha, beta, depth)
+            worst = self._minimize_over_opponent(
+                state, my_action, opp_legal, alpha, beta, depth,
+                next_prev_my_switch=(my_action.action_type == "switch"),
+            )
             if worst > best:
                 best = worst
             alpha = max(alpha, best)
@@ -234,18 +251,50 @@ class MinimaxAgent(BaseAgent):
         actions: list[BattleAction],
         acting_player: int,
         maximize: bool,
+        prev_switch: bool = False,
     ) -> list[BattleAction]:
         """Ordena acciones por valor heurístico estimado.
 
         Explorar primero las ramas más prometedoras maximiza los cortes alfa-beta.
+        Si el turno anterior fue un switch propio (prev_switch=True), penaliza
+        volver a hacer switch para desincentivar el bucle switch-ping-pong.
         """
         scored: list[tuple[float, BattleAction]] = []
         for action in actions:
             score = self._quick_score(state, acting_player, action)
+            # Penalizar switch consecutivo propio: desincentivar ping-pong sin bloquearlo
+            if (prev_switch
+                    and action.action_type == "switch"
+                    and acting_player == self._player_index):
+                score -= 0.50
             scored.append((score, action))
 
         scored.sort(key=lambda x: x[0], reverse=maximize)
         return [a for _, a in scored]
+
+    def _apply_topk_with_move_guarantee(
+        self, ranked: list[BattleAction]
+    ) -> list[BattleAction]:
+        """Toma top_k acciones garantizando que al menos un movimiento (move) esté incluido.
+
+        Sin esta garantía, cuando el oponente puede OHKOar al activo, _quick_score
+        devuelve -2.0 para todos los movimientos y los switches puntúan más alto.
+        El resultado es que top_k queda formado solo por switches y el árbol Minimax
+        nunca explora ramas de ataque, causando el bucle de switches infinito.
+        """
+        top_k = ranked[: self.top_k_actions]
+        if any(a.action_type == "move" for a in top_k):
+            return top_k
+        best_move = next((a for a in ranked if a.action_type == "move"), None)
+        if best_move is None:
+            return top_k  # Solo hay switches disponibles (situación de lucha pura)
+        result = list(top_k)
+        # Reemplaza el switch de menor prioridad con el mejor movimiento disponible
+        for i in range(len(result) - 1, -1, -1):
+            if result[i].action_type == "switch":
+                result[i] = best_move
+                return result
+        return result
 
     def _quick_score(
         self, state: BattleState, acting_player: int, action: BattleAction
@@ -408,11 +457,27 @@ class MinimaxAgent(BaseAgent):
         dmg_ratio_out = opp_best_dmg_vs_incoming / max(1, incoming.max_hp)
         matchup_gain = max(-1.0, min(1.0, dmg_ratio_in - dmg_ratio_out))
 
+        # Costo de oportunidad: penalizar el switch cuando el activo actual puede infligir
+        # daño relevante y el entrante no mejora la ventaja de tipo. Cambiar en esa
+        # situación desperdicia el turno de ataque sin ningún beneficio táctico.
+        current_best_dmg = max(
+            (calculate_damage(current_active, opp_active, m) * m.accuracy
+             for m in current_active.moves if m.has_pp()),
+            default=0.0,
+        )
+        current_dmg_ratio = current_best_dmg / max(1, opp_active.max_hp)
+        opportunity_penalty = 0.0
+        if current_dmg_ratio > 0.06 and best_mult_incoming <= 1.0:
+            # El activo puede hacer daño y el entrante no tiene ventaja de tipo:
+            # el switch no mejora el matchup y cuesta el turno de ataque.
+            opportunity_penalty = min(0.30, current_dmg_ratio * 2.5)
+
         return (0.28 * type_advantage
                 + 0.20 * hp_ratio
                 + 0.20 * vulnerability_score
                 + 0.12 * team_vulnerability
-                + 0.20 * matchup_gain)
+                + 0.20 * matchup_gain
+                - opportunity_penalty)
 
     # ──────────────────────────────────────────
     # Helpers
