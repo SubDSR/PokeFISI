@@ -2,10 +2,21 @@
 
 Optimizaciones implementadas:
   A) Poda alfa-beta canónica.
-  B) Ordenamiento heurístico de acciones (inspirado en A*).
+  B) Ordenamiento heurístico de acciones para mejorar la poda alfa-beta.
   C) Early cutoffs en estados terminales.
   D) Tabla de transposición (memoización).
   E) Control de branching factor (top-K acciones).
+
+Mejoras respecto a la versión anterior:
+  - _quick_score() para acciones SWITCH ahora incorpora ventaja de tipo
+    del Pokémon entrante vs el rival activo, en lugar de solo hp_ratio.
+    Antes: score_switch = hp_ratio_entrante  (ignora si el cambio mejora
+    la situación táctica o la empeora)
+    Ahora: score_switch = type_advantage × 0.5 + hp_ratio × 0.4
+           + vulnerability_reduction × 0.1
+    Esto hace que Minimax explore primero los cambios tácticamente buenos
+    (ej: cambiar a Bulbasaur cuando el rival usa un Pokémon de agua),
+    mejorando la poda alfa-beta y la calidad de las decisiones.
 
 Complejidad:
   - Sin poda:  O((b·b)^d)  donde b = branching factor, d = profundidad
@@ -45,10 +56,8 @@ class MinimaxAgent(BaseAgent):
         self.weights = list(weights) if weights else [0.4, 0.2, 0.1, 0.2, 0.1]
         self.enable_transposition_table = enable_transposition_table
         self.top_k_actions = top_k_actions
-        # RNG para la simulación interna (reproducible)
         self._sim_rng = rng or random.Random(42)
 
-        # Contadores de telemetría (reseteados por choose_action)
         self._nodes: int = 0
         self._pruned: int = 0
         self._tt_hits: int = 0
@@ -93,7 +102,6 @@ class MinimaxAgent(BaseAgent):
         ordered_mine = ordered_mine[: self.top_k_actions]
 
         for action in ordered_mine:
-            # Peor respuesta del oponente a esta acción propia
             worst = self._minimize_over_opponent(state, action, opp_legal, alpha, beta, self.depth)
             if worst > best_val:
                 best_val = worst
@@ -146,7 +154,7 @@ class MinimaxAgent(BaseAgent):
             if val < worst:
                 worst = val
             inner_beta = min(inner_beta, worst)
-            if worst <= alpha:  # Alpha cutoff
+            if worst <= alpha:
                 self._pruned += 1
                 break
 
@@ -158,7 +166,6 @@ class MinimaxAgent(BaseAgent):
         """Minimax recursivo con poda alfa-beta desde la perspectiva del jugador."""
         self._nodes += 1
 
-        # Transposition table lookup
         if self.enable_transposition_table:
             h = self._hash_state(state)
             cached = self._tt.get(h)
@@ -166,13 +173,11 @@ class MinimaxAgent(BaseAgent):
                 self._tt_hits += 1
                 return cached[1]
 
-        # Estado terminal o hoja
         if state.battle_over():
             return self._terminal_value(state)
 
         if depth == 0:
-            val = evaluate_state(state, self._player_index, self.weights)
-            return val
+            return evaluate_state(state, self._player_index, self.weights)
 
         my_legal = state.get_legal_actions(self._player_index)
         opp_legal = state.get_legal_actions(1 - self._player_index)
@@ -199,7 +204,7 @@ class MinimaxAgent(BaseAgent):
         return best
 
     # ──────────────────────────────────────────
-    # Ordenamiento heurístico (move ordering)
+    # Ordenamiento heurístico
     # ──────────────────────────────────────────
 
     def _rank_actions(
@@ -209,7 +214,7 @@ class MinimaxAgent(BaseAgent):
         acting_player: int,
         maximize: bool,
     ) -> list[BattleAction]:
-        """Ordena acciones por valor heurístico estimado (inspirado en A*).
+        """Ordena acciones por valor heurístico estimado.
 
         Explorar primero las ramas más prometedoras maximiza los cortes alfa-beta.
         """
@@ -242,15 +247,55 @@ class MinimaxAgent(BaseAgent):
             return expected_dmg / max(1, defender.max_hp)
 
         if action.action_type == "switch":
-            if action.index < 0 or action.index >= len(my_team.pokemons):
-                return 0.0
-            switch_in = my_team.pokemons[action.index]
-            return switch_in.hp_ratio  # preferir Pokémon con más HP
+            return self._score_switch(action, my_team, opp_team)
 
         if action.action_type == "struggle":
-            return 0.01  # Struggle es un último recurso
+            return 0.01
 
         return 0.0
+
+    def _score_switch(self, action: BattleAction, my_team, opp_team) -> float:
+        """Evalúa la calidad de un cambio considerando ventaja de tipo.
+
+        Componentes:
+          - type_advantage (peso 0.5): multiplicador de tipo del mejor movimiento
+            del Pokémon entrante vs el rival activo. Normalizado a [0, 1] dividiendo
+            entre 2.0 (máximo posible). Incentiva cambios a Pokémon con ventaja real.
+          - hp_ratio (peso 0.4): HP actual / HP máximo del Pokémon entrante.
+            Evita cambiar a un Pokémon ya muy debilitado.
+          - vulnerability_reduction (peso 0.1): penaliza cambiar a un Pokémon
+            que el rival puede explotar (si el rival tiene 2x contra el entrante).
+
+        El score final está en [0, 1] y es directamente comparable con el score
+        de los movimientos (expected_dmg / max_hp, que también está en ese rango).
+        """
+        if action.index < 0 or action.index >= len(my_team.pokemons):
+            return 0.0
+
+        incoming = my_team.pokemons[action.index]
+        opp_active = opp_team.active_pokemon
+
+        # Ventaja de tipo: mejor multiplicador de los movimientos del entrante
+        best_mult_incoming = max(
+            (get_type_multiplier(m.move_type, opp_active.pokemon_type)
+             for m in incoming.moves if m.has_pp()),
+            default=1.0,
+        )
+        type_advantage = best_mult_incoming / 2.0  # normalizado a [0, 1]
+
+        # HP del entrante normalizado
+        hp_ratio = incoming.hp / max(1, incoming.max_hp)
+
+        # Vulnerabilidad del entrante ante el rival
+        best_mult_opp_vs_incoming = max(
+            (get_type_multiplier(m.move_type, incoming.pokemon_type)
+             for m in opp_active.moves if m.has_pp()),
+            default=1.0,
+        )
+        vulnerability = best_mult_opp_vs_incoming / 2.0
+        vulnerability_score = 1.0 - vulnerability
+
+        return 0.5 * type_advantage + 0.4 * hp_ratio + 0.1 * vulnerability_score
 
     # ──────────────────────────────────────────
     # Helpers
