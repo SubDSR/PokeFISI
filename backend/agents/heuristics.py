@@ -113,10 +113,10 @@ def f_riesgo_morir(state: BattleState, player_index: int) -> float:
 
     Cálculo:
       1. Daño máximo que puede infligir el rival con su mejor movimiento.
-      2. Si hp_actual ≤ daño_máximo → riesgo = 1.0
-      3. Si hp_actual ≥ 2 × daño_máximo → riesgo = 0.0
-      4. Interpolación lineal entre esos extremos.
-      5. Si el rival es más rápido (ataca primero) → riesgo × 1.5 (cap 1.0).
+      2. Si hp_actual ≤ daño_máximo Y rival más rápido → muerte garantizada antes de atacar → -1.0
+      3. Si hp_actual ≤ daño_máximo (pero propio más rápido) → riesgo = 0.8 (puede atacar primero)
+      4. Si hp_actual ≥ 2 × daño_máximo → riesgo = 0.0
+      5. Interpolación lineal entre esos extremos; si rival es más rápido → × 1.5 (cap 1.0).
 
     Retorno normalizado a [-1, 0]: valores negativos son penalizaciones.
     Rango: [-1, 0]
@@ -130,26 +130,106 @@ def f_riesgo_morir(state: BattleState, player_index: int) -> float:
         return 0.0
 
     hp = my_active.hp
+    opp_faster = opp_active.speed > my_active.speed
 
     if hp <= max_opp_damage:
-        riesgo = 1.0
+        # Muerte garantizada: si el rival es más rápido, el ataque propio nunca ocurre
+        riesgo = 1.0 if opp_faster else 0.8
     elif hp >= 2 * max_opp_damage:
         riesgo = 0.0
     else:
         riesgo = 1.0 - (hp - max_opp_damage) / max_opp_damage
-
-    # Si el rival es más rápido, el riesgo se agrava
-    if opp_active.speed > my_active.speed:
-        riesgo = min(1.0, riesgo * 1.5)
+        if opp_faster:
+            riesgo = min(1.0, riesgo * 1.5)
 
     return -riesgo  # penalización negativa
+
+
+def f_matchup_potencial(state: BattleState, player_index: int) -> float:
+    """Potencial continuo de los Pokémon en reserva (usa hp_ratio lineal).
+
+    Mantenida para compatibilidad con tests. La función activa en evaluate_state
+    es f_win_condition, que usa un umbral de supervivencia binario más preciso.
+    Rango: [0, 1]
+    """
+    my_team = state.team_of(player_index)
+    opp_team = state.opponent_of(player_index)
+
+    bench = [
+        p for i, p in enumerate(my_team.pokemons)
+        if not p.is_fainted() and i != my_team.active_index
+    ]
+    opp_alive = [p for p in opp_team.pokemons if not p.is_fainted()]
+
+    if not bench or not opp_alive:
+        return 0.0
+
+    total = 0.0
+    for bench_poke in bench:
+        hp_ratio = bench_poke.hp / max(1, bench_poke.max_hp)
+        best_mult = max(
+            (get_type_multiplier(m.move_type, opp_poke.pokemon_type)
+             for opp_poke in opp_alive
+             for m in bench_poke.moves if m.has_pp()),
+            default=1.0,
+        )
+        type_score = max(0.0, best_mult - 1.0)
+        total += hp_ratio * type_score
+
+    return min(1.0, total / max(1, len(bench)))
+
+
+def f_win_condition(state: BattleState, player_index: int) -> float:
+    """Counters VIABLES en reserva: sobreviven un golpe del rival Y tienen ventaja de tipo.
+
+    Un Pokémon en reserva es 'counter viable' solo si cumple AMBAS condiciones:
+      1. HP actual > daño esperado del mejor ataque rival (sobrevive al menos un turno)
+      2. Ventaja de tipo real (≥ 2×) contra algún rival vivo
+
+    Por qué es mejor que f_matchup_potencial (hp_ratio lineal):
+      - f_matchup_potencial: Psyduck 50HP → 0.50, Psyduck 18HP → 0.18 (diferencia: 0.32)
+      - f_win_condition:     Psyduck 50HP → 0.50, Psyduck 18HP → 0.00 (diferencia: 0.50)
+    El umbral de supervivencia crea una señal binaria exactamente donde importa:
+    cruzar de 50HP a 18HP frente a Ponyta no es 'perder algo de valor', es
+    PERDER COMPLETAMENTE la condición de victoria.
+
+    Rango: [0, 1]
+    """
+    my_team = state.team_of(player_index)
+    opp_team = state.opponent_of(player_index)
+
+    bench = [
+        p for i, p in enumerate(my_team.pokemons)
+        if not p.is_fainted() and i != my_team.active_index
+    ]
+    opp_alive = [p for p in opp_team.pokemons if not p.is_fainted()]
+
+    if not bench or not opp_alive:
+        return 0.0
+
+    viable = 0
+    for bench_poke in bench:
+        for opp_poke in opp_alive:
+            best_mult = max(
+                (get_type_multiplier(m.move_type, opp_poke.pokemon_type)
+                 for m in bench_poke.moves if m.has_pp()),
+                default=1.0,
+            )
+            if best_mult < 2.0:
+                continue  # Sin ventaja de tipo real contra este rival
+            opp_best_dmg = _max_expected_damage(opp_poke, bench_poke)
+            if bench_poke.hp > opp_best_dmg:
+                viable += 1
+                break  # Este bench_poke ya cuenta como viable
+
+    return min(1.0, viable / max(1, len(bench)))
 
 
 # ──────────────────────────────────────────────
 # Función heurística compuesta
 # ──────────────────────────────────────────────
 
-DEFAULT_WEIGHTS: list[float] = [0.25, 0.35, 0.05, 0.2, 0.15]
+DEFAULT_WEIGHTS: list[float] = [0.15, 0.20, 0.05, 0.10, 0.25, 0.25]
 
 WIN_VALUE = 1000.0
 LOSS_VALUE = -1000.0
@@ -164,7 +244,7 @@ def evaluate_state(
     """Función heurística compuesta y normalizada.
 
     h = W1·f_pokemon_vivos + W2·f_ventaja_tipo + W3·f_velocidad
-      + W4·f_hp_restante + W5·f_riesgo_morir
+      + W4·f_hp_restante + W5·f_riesgo_morir + W6·f_win_condition
 
     Para estados terminales retorna ±1000 (sin evaluar factores).
     """
@@ -184,5 +264,6 @@ def evaluate_state(
     f3 = f_velocidad(state, player_index)
     f4 = f_hp_restante(state, player_index)
     f5 = f_riesgo_morir(state, player_index)
+    f6 = f_win_condition(state, player_index)
 
-    return w[0] * f1 + w[1] * f2 + w[2] * f3 + w[3] * f4 + w[4] * f5
+    return w[0] * f1 + w[1] * f2 + w[2] * f3 + w[3] * f4 + w[4] * f5 + w[5] * f6

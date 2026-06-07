@@ -26,13 +26,13 @@ _RESULTS_DIR = Path(__file__).resolve().parent.parent / "results"
 _BEST_WEIGHTS_FILE = _RESULTS_DIR / "best_weights.json"
 
 # Pesos ajustados manualmente (nivel "hard" y fallback de "sobrevilla")
-# Orden: [f_pokemon_vivos, f_ventaja_tipo, f_velocidad, f_hp_restante, f_riesgo_morir]
-# Cambio respecto a v1 [0.4, 0.2, 0.1, 0.2, 0.1]:
-#   - f_ventaja_tipo 0.2→0.35: el tipo domina la táctica; penaliza matchups 4× más fuerte
-#   - f_riesgo_morir 0.1→0.15: penaliza más los estados donde el activo muere en un turno
-#   - f_pokemon_vivos 0.4→0.25: menos peso a conteo bruto (tipo importa más que número)
-#   - f_velocidad 0.1→0.05: la velocidad ya influye en la fórmula de daño; reducida aquí
-MANUAL_WEIGHTS: list[float] = [0.25, 0.35, 0.05, 0.2, 0.15]
+# Orden: [f_pokemon_vivos, f_ventaja_tipo, f_velocidad, f_hp_restante, f_riesgo_morir, f_win_condition]
+# Cambio respecto a v3 [0.20, 0.20, 0.05, 0.15, 0.25, 0.15]:
+#   - f_win_condition 0.15→0.25: umbral binario de counter viable (sobrevive golpe + ventaja tipo)
+#     Señal 2.6× más fuerte que f_matchup_potencial (lineal) en el umbral crítico de supervivencia
+#   - f_pokemon_vivos 0.20→0.15: reducir peso al conteo de corto plazo
+#   - f_hp_restante 0.15→0.10: f_win_condition ya cubre la salud estratégica clave
+MANUAL_WEIGHTS: list[float] = [0.15, 0.20, 0.05, 0.10, 0.25, 0.25]
 
 # Profundidad de búsqueda Minimax
 # depth=4 + top_k=5: ve 4 turnos completos adelante (~14k nodos, ~1.8s por turno).
@@ -46,7 +46,7 @@ MINIMAX_DEPTH: int = 4
 # Rangos válidos para validación de pesos
 _WEIGHT_MIN = 0.0
 _WEIGHT_MAX = 10.0
-_WEIGHT_COUNT = 5
+_WEIGHT_COUNT = 6
 
 
 def load_agent_weights(use_optimized: bool = True) -> list[float]:
