@@ -16,7 +16,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from backend.agents import HeuristicAgent, MinimaxAgent
-from backend.battle import BattleEngine, BattleState, build_random_team
+from backend.battle import BattleEngine, BattleState, build_balanced_teams
 from backend.config import MANUAL_WEIGHTS
 
 _RESULTS_DIR = Path(__file__).resolve().parent.parent / "results"
@@ -42,8 +42,7 @@ def run(battles: int, depth: int, team_size: int, seed: int) -> None:
         battle_rng = random.Random(rng.randint(0, 1_000_000))
         minimax._sim_rng = random.Random(battle_rng.randint(0, 1_000_000))
 
-        team1 = build_random_team("Minimax", team_size, battle_rng)
-        team2 = build_random_team("Heuristic", team_size, battle_rng)
+        team1, team2 = build_balanced_teams("Minimax", "Heuristic", team_size, battle_rng)
         state = BattleState(team1, team2)
         engine = BattleEngine(state, [minimax, heuristic], rng=battle_rng)
         result = engine.run()

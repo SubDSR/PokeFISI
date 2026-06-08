@@ -14,7 +14,7 @@ import random
 
 from backend.agents.heuristic_agent import HeuristicAgent
 from backend.agents.minimax_agent import MinimaxAgent
-from backend.battle import BattleEngine, BattleState, build_random_team
+from backend.battle import BattleEngine, BattleState, build_balanced_teams
 
 
 def evaluate_weights(
@@ -53,8 +53,7 @@ def evaluate_weights(
 
     for battle_num in range(n_battles):
         battle_rng = random.Random(rng.randint(0, 1_000_000))
-        team1 = build_random_team("Candidato", team_size, battle_rng)
-        team2 = build_random_team("Rival", team_size, battle_rng)
+        team1, team2 = build_balanced_teams("Candidato", "Rival", team_size, battle_rng)
         state = BattleState(team1, team2)
 
         minimax_agent._sim_rng = random.Random(battle_rng.randint(0, 1_000_000))

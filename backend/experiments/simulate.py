@@ -6,7 +6,7 @@ import random
 
 from backend.agents.labels import build_agent_labels
 from backend.agents import HeuristicAgent, MinimaxAgent, RandomAgent
-from backend.battle import BattleEngine, BattleState, build_random_team
+from backend.battle import BattleEngine, BattleState, build_balanced_teams
 from backend.config import MANUAL_WEIGHTS, MINIMAX_DEPTH, load_agent_weights
 from backend.ui import ConsoleBattleUI
 
@@ -40,8 +40,7 @@ def run_experiment(
     turn_counts: list[int] = []
 
     for _ in range(battles):
-        team1 = build_random_team(trainer1_name, team_size, rng)
-        team2 = build_random_team(trainer2_name, team_size, rng)
+        team1, team2 = build_balanced_teams(trainer1_name, trainer2_name, team_size, rng)
         state = BattleState(team1, team2)
         agents = [create_agent(agent1_name, rng), create_agent(agent2_name, rng)]
         engine = BattleEngine(
