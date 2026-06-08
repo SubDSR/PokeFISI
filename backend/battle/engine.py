@@ -39,6 +39,7 @@ class BattleEngine:
                     break
                 self._execute_action(player_index, action)
 
+            self.state.last_actions = list(actions)
             self.state.turn_number += 1
 
         winner = self.state.winner() or "Empate"

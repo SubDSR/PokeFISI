@@ -7,17 +7,37 @@ Todas operan sobre copias clonadas (BattleState.clone()).
 from __future__ import annotations
 
 import random
+from collections.abc import Callable
 
 from backend.battle.damage import calculate_damage
-from backend.battle.models import BattleAction, BattlePokemon, TeamState
+from backend.battle.models import BattleAction
 from backend.battle.state import BattleState
 
+ForcedSwitchSelector = Callable[[BattleState, int], int | None]
 
-def _auto_switch_fainted(state: BattleState, player_index: int) -> None:
-    """Cambia automáticamente al primer Pokémon vivo si el activo está debilitado."""
+
+def _auto_switch_fainted(
+    state: BattleState,
+    player_index: int,
+    selector: ForcedSwitchSelector | None = None,
+) -> None:
+    """Cambia el Pokémon debilitado usando una política opcional.
+
+    Sin selector conserva el comportamiento histórico: primer Pokémon vivo.
+    Minimax puede inyectar una política táctica sin afectar al motor real.
+    """
     team = state.team_of(player_index)
     if team.all_fainted() or not team.active_pokemon.is_fainted():
         return
+
+    if selector is not None:
+        selected = selector(state, player_index)
+        if selected is not None and 0 <= selected < len(team.pokemons):
+            target = team.pokemons[selected]
+            if not target.is_fainted():
+                team.active_index = selected
+                return
+
     for i, pokemon in enumerate(team.pokemons):
         if not pokemon.is_fainted():
             team.active_index = i
@@ -39,6 +59,7 @@ def _exec_move(
     player_index: int,
     move_index: int,
     rng: random.Random,
+    deterministic: bool,
 ) -> None:
     attacker_team = state.team_of(player_index)
     defender_team = state.opponent_of(player_index)
@@ -55,10 +76,11 @@ def _exec_move(
         return
 
     move.consume_pp()
-    if rng.random() > move.accuracy:
-        return  # falla
-
     damage = calculate_damage(attacker, defender, move)
+    if deterministic:
+        damage = max(1, int(round(damage * move.accuracy)))
+    elif rng.random() > move.accuracy:
+        return  # falla
     defender.hp = max(0, defender.hp - damage)
 
 
@@ -78,6 +100,7 @@ def simulate_action(
     player_index: int,
     action: BattleAction,
     rng: random.Random,
+    deterministic: bool = False,
 ) -> None:
     """Aplica UNA acción de un jugador sobre el estado (ya clonado) in-place.
 
@@ -86,7 +109,7 @@ def simulate_action(
     if action.action_type == "switch":
         _exec_switch(state, player_index, action.index)
     elif action.action_type == "move":
-        _exec_move(state, player_index, action.index, rng)
+        _exec_move(state, player_index, action.index, rng, deterministic)
     elif action.action_type == "struggle":
         _exec_struggle(state, player_index)
     # "pass" se ignora
@@ -97,20 +120,24 @@ def simulate_turn(
     action_p0: BattleAction,
     action_p1: BattleAction,
     rng: random.Random | None = None,
+    deterministic: bool = False,
+    forced_switch_selector: ForcedSwitchSelector | None = None,
 ) -> BattleState:
     """Simula un turno completo con las acciones de ambos jugadores.
 
     Respeta:
       - Prioridad de cambio de Pokémon (switches van primero)
       - Orden por velocidad (mayor velocidad actúa antes)
-      - Precisión de movimientos (determinista con la semilla dada)
-      - Auto-switch tras debilitamiento
+      - Precisión de movimientos, o daño esperado si deterministic=True
+      - Auto-switch tras debilitamiento, opcionalmente con selector táctico
 
     Args:
         state: Estado original (NO se modifica).
         action_p0: Acción del jugador 0.
         action_p1: Acción del jugador 1.
         rng: Generador aleatorio reproducible.
+        deterministic: si True usa daño esperado en vez de muestrear accuracy.
+        forced_switch_selector: política opcional para cambios forzados.
 
     Returns:
         Nuevo BattleState resultado del turno.
@@ -145,16 +172,17 @@ def simulate_turn(
             current_idx = cloned.teams[player_idx].active_index
             original_pokemon = cloned.teams[player_idx].pokemons[initial_active_idx[player_idx]]
             if current_idx != initial_active_idx[player_idx] and original_pokemon.is_fainted():
-                _auto_switch_fainted(cloned, 1 - player_idx)
+                _auto_switch_fainted(cloned, player_idx, forced_switch_selector)
                 continue
 
-        simulate_action(cloned, player_idx, action, rng)
+        simulate_action(cloned, player_idx, action, rng, deterministic)
         # Resolver cambio forzado del oponente tras debilitamiento
-        _auto_switch_fainted(cloned, 1 - player_idx)
+        _auto_switch_fainted(cloned, 1 - player_idx, forced_switch_selector)
 
     # Resolver cambios forzados pendientes al final del turno
     for pi in range(2):
-        _auto_switch_fainted(cloned, pi)
+        _auto_switch_fainted(cloned, pi, forced_switch_selector)
 
+    cloned.last_actions = [action_p0, action_p1]
     cloned.turn_number += 1
     return cloned

@@ -8,6 +8,7 @@ class BattleState:
         self.teams = [team1, team2]
         self.turn_number = 1
         self.log: list[str] = []
+        self.last_actions: list[BattleAction | None] = [None, None]
 
     def team_of(self, player_index: int) -> TeamState:
         return self.teams[player_index]
@@ -24,6 +25,7 @@ class BattleState:
         cloned = BattleState(self.teams[0].clone(), self.teams[1].clone())
         cloned.turn_number = self.turn_number
         cloned.log = list(self.log)
+        cloned.last_actions = list(self.last_actions)
         return cloned
 
     def battle_over(self) -> bool:
