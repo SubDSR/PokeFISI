@@ -5,6 +5,7 @@ from __future__ import annotations
 import random
 
 from backend.battle.models import BattleMove, BattlePokemon, TeamState
+from backend.battle.stats import calculate_hp
 from backend.data import MOVEDEX, POKEDEX
 from backend.data.types import get_type_multiplier, parse_types
 
@@ -95,12 +96,14 @@ def build_battle_pokemon(species_id: str, rng: random.Random) -> BattlePokemon:
         for mid in selected
     ]
 
+    calculated_hp = calculate_hp(species.hp, level=species.level)
+
     return BattlePokemon(
         species_id=species.id,
         name=species.name,
         level=species.level,
-        max_hp=species.hp,
-        hp=species.hp,
+        max_hp=calculated_hp,
+        hp=calculated_hp,
         attack=species.attack,
         defense=species.defense,
         speed=species.speed,
