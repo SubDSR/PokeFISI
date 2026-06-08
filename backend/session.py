@@ -201,6 +201,7 @@ class BattleSession:
                 break
             self.engine._execute_action(player_index, action)
 
+        self.state.last_actions = list(actions)
         self.state.turn_number += 1
         self._resolve_ai_forced_switches()
 
