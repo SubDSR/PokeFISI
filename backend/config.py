@@ -35,11 +35,11 @@ _BEST_WEIGHTS_FILE = _RESULTS_DIR / "best_weights.json"
 MANUAL_WEIGHTS: list[float] = [0.25, 0.35, 0.05, 0.2, 0.15]
 
 # Profundidad de búsqueda Minimax
-# depth=4 + top_k=5: ve 4 turnos completos adelante (~14k nodos, ~1.8s por turno).
+# depth=4 + top_k=6: evalua el set completo habitual 3v3 (4 ataques + 2 switches).
 # Comparativa medida en hardware local:
 #   depth=3 top_k=6: 0.6s  4,656 nodos  ← anterior
-#   depth=4 top_k=5: 1.8s 14,118 nodos  ← actual (sweet spot calidad/velocidad)
-#   depth=4 top_k=6: 5.5s 44,708 nodos  ← demasiado lento
+#   depth=4 top_k=5: 1.8s 14,118 nodos
+#   depth=4 top_k=6: mas caro, pero evita excluir switches/ataques criticos
 #   depth=5:         ~50s ~400k  nodos  ← inviable en juego interactivo
 MINIMAX_DEPTH: int = 4
 
