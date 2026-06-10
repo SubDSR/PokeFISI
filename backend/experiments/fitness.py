@@ -15,13 +15,15 @@ import random
 from backend.agents.heuristic_agent import HeuristicAgent
 from backend.agents.minimax_agent import MinimaxAgent
 from backend.battle import BattleEngine, BattleState, build_balanced_teams
+from backend.config import MINIMAX_DEPTH, MINIMAX_TOP_K_ACTIONS
 
 
 def evaluate_weights(
     weights: list[float],
     n_battles: int = 30,
     team_size: int = 3,
-    depth: int = 1,
+    depth: int = MINIMAX_DEPTH,
+    top_k_actions: int = MINIMAX_TOP_K_ACTIONS,
     seed: int = 42,
     verbose: bool = False,
 ) -> dict:
@@ -31,7 +33,8 @@ def evaluate_weights(
         weights: Vector [W1, W2, W3, W4, W5] a evaluar.
         n_battles: Número de batallas para reducir varianza.
         team_size: Tamaño de equipo.
-        depth: Profundidad Minimax (default 1 para velocidad durante evolución).
+        depth: Profundidad Minimax.
+        top_k_actions: Número máximo de acciones priorizadas por búsqueda.
         seed: Semilla maestra reproducible.
         verbose: Si True imprime información por batalla.
 
@@ -44,7 +47,7 @@ def evaluate_weights(
         depth=depth,
         weights=weights,
         enable_transposition_table=True,
-        top_k_actions=6,
+        top_k_actions=top_k_actions,
     )
     heuristic_agent = HeuristicAgent(name="Rival")
 

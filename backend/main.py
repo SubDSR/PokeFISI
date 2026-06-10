@@ -7,7 +7,7 @@ from pathlib import Path
 from backend.agents.labels import build_agent_labels
 from backend.agents import HeuristicAgent, HumanAgent, MinimaxAgent, RandomAgent
 from backend.battle import BattleEngine, BattleState, build_balanced_teams, build_random_team
-from backend.config import MANUAL_WEIGHTS, MINIMAX_DEPTH, load_agent_weights
+from backend.config import MANUAL_WEIGHTS, MINIMAX_DEPTH, MINIMAX_TOP_K_ACTIONS, load_agent_weights
 from backend.experiments import run_experiment
 from backend.server import run_server
 from backend.ui import ConsoleBattleUI, ReplayBattleUI
@@ -22,11 +22,21 @@ def create_agent(agent_name: str, rng: random.Random):
         return HumanAgent()
     if agent_name == "minimax":
         sim_rng = random.Random(rng.randint(0, 1_000_000))
-        return MinimaxAgent(depth=MINIMAX_DEPTH, weights=list(MANUAL_WEIGHTS), rng=sim_rng)
+        return MinimaxAgent(
+            depth=MINIMAX_DEPTH,
+            top_k_actions=MINIMAX_TOP_K_ACTIONS,
+            weights=list(MANUAL_WEIGHTS),
+            rng=sim_rng,
+        )
     if agent_name == "minimax-optimized":
         sim_rng = random.Random(rng.randint(0, 1_000_000))
         weights = load_agent_weights(use_optimized=True)
-        return MinimaxAgent(depth=MINIMAX_DEPTH, weights=weights, rng=sim_rng)
+        return MinimaxAgent(
+            depth=MINIMAX_DEPTH,
+            top_k_actions=MINIMAX_TOP_K_ACTIONS,
+            weights=weights,
+            rng=sim_rng,
+        )
     raise ValueError(f"Agente no soportado: {agent_name}")
 
 

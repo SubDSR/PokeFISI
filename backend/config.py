@@ -42,6 +42,7 @@ MANUAL_WEIGHTS: list[float] = [0.25, 0.35, 0.05, 0.2, 0.15]
 #   depth=4 top_k=6: mas caro, pero evita excluir switches/ataques criticos
 #   depth=5:         ~50s ~400k  nodos  ← inviable en juego interactivo
 MINIMAX_DEPTH: int = 4
+MINIMAX_TOP_K_ACTIONS: int = 6
 
 # Rangos válidos para validación de pesos
 _WEIGHT_MIN = 0.0
@@ -143,6 +144,7 @@ def build_agent(difficulty: str, rng=None):
         return MinimaxAgent(
             name="IA (Difícil)",
             depth=MINIMAX_DEPTH,
+            top_k_actions=MINIMAX_TOP_K_ACTIONS,
             weights=list(MANUAL_WEIGHTS),
         )
 
@@ -153,6 +155,7 @@ def build_agent(difficulty: str, rng=None):
         return MinimaxAgent(
             name="IA Sobrevilla",
             depth=MINIMAX_DEPTH,
+            top_k_actions=MINIMAX_TOP_K_ACTIONS,
             weights=optimized,
         )
 

@@ -60,7 +60,7 @@ python scripts/export_metrics.py --depths 1 2 --battles 20
 
 ### Entrenar pesos con Algoritmo Genético (offline)
 ```bash
-python scripts/run_evolution.py --generations 50 --battles 30 --depth 1
+python scripts/run_evolution.py --generations 50 --battles 30 --depth 4 --top-k 6
 # Genera: results/best_weights.json, results/evolution_history.csv
 ```
 

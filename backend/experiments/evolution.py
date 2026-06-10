@@ -24,7 +24,7 @@ import time
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from backend.config import MANUAL_WEIGHTS, save_optimized_weights
+from backend.config import MANUAL_WEIGHTS, MINIMAX_DEPTH, MINIMAX_TOP_K_ACTIONS, save_optimized_weights
 from backend.experiments.fitness import evaluate_weights
 
 _RESULTS_DIR = Path(__file__).resolve().parent.parent.parent / "results"
@@ -60,7 +60,8 @@ class EvolutionConfig:
     elite_percentage: float = 0.15
     tournament_size: int = 4
     n_battles_fitness: int = 30
-    minimax_depth: int = 1
+    minimax_depth: int = MINIMAX_DEPTH
+    top_k_actions: int = MINIMAX_TOP_K_ACTIONS
     team_size: int = 3
     seed: int = 42
 
@@ -120,6 +121,7 @@ def _evaluate_individual(
             n_battles=config.n_battles_fitness,
             team_size=config.team_size,
             depth=config.minimax_depth,
+            top_k_actions=config.top_k_actions,
             seed=battle_seed,
         )
         individual.fitness = result["fitness"]
@@ -144,7 +146,10 @@ def run_evolution(config: EvolutionConfig | None = None) -> list[GenerationStats
     print(f"\n{'='*60}")
     print(f"  ALGORITMO GENÉTICO — PokeFISI MinimaxAgent")
     print(f"  Población: {cfg.population_size}  |  Generaciones: {cfg.generations}")
-    print(f"  Batallas/individuo: {cfg.n_battles_fitness}  |  Profundidad: {cfg.minimax_depth}")
+    print(
+        f"  Batallas/individuo: {cfg.n_battles_fitness}  |  "
+        f"Profundidad: {cfg.minimax_depth}  |  Top-K: {cfg.top_k_actions}"
+    )
     print(f"{'='*60}\n")
 
     # ── Inicializar población ──────────────────
@@ -263,6 +268,7 @@ def run_evolution(config: EvolutionConfig | None = None) -> list[GenerationStats
             "generations": cfg.generations,
             "n_battles_fitness": cfg.n_battles_fitness,
             "minimax_depth": cfg.minimax_depth,
+            "top_k_actions": cfg.top_k_actions,
         },
     )
     _export_summary(history, best_ever, cfg)
@@ -302,6 +308,7 @@ def _export_summary(
         f"Población:       {cfg.population_size}",
         f"Batallas/ind:    {cfg.n_battles_fitness}",
         f"Profundidad MM:  {cfg.minimax_depth}",
+        f"Top-K acciones:  {cfg.top_k_actions}",
         "",
         f"Mejor fitness:   {best.fitness:.4f}",
         f"Win rate final:  {best.win_rate:.1f}%",

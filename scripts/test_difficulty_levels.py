@@ -19,7 +19,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from backend.agents import HeuristicAgent, MinimaxAgent, RandomAgent
 from backend.battle import BattleEngine, BattleState, build_balanced_teams
-from backend.config import MANUAL_WEIGHTS, MINIMAX_DEPTH, load_agent_weights
+from backend.config import MANUAL_WEIGHTS, MINIMAX_DEPTH, MINIMAX_TOP_K_ACTIONS, load_agent_weights
 
 
 def battle_pair(
@@ -78,12 +78,14 @@ def main() -> None:
     lvl3 = MinimaxAgent(
         name="Nivel3_Minimax",
         depth=MINIMAX_DEPTH,
+        top_k_actions=MINIMAX_TOP_K_ACTIONS,
         weights=list(MANUAL_WEIGHTS),
     )
     lvl4_weights = load_agent_weights(use_optimized=True)
     lvl4 = MinimaxAgent(
         name="Nivel4_Sobrevilla",
         depth=MINIMAX_DEPTH,
+        top_k_actions=MINIMAX_TOP_K_ACTIONS,
         weights=lvl4_weights,
     )
 

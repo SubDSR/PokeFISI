@@ -150,7 +150,7 @@ Actualmente PP existe, pero la heuristica puede valorar mejor:
 Comando base:
 
 ```powershell
-$env:PYTHONIOENCODING='utf-8'; python scripts/run_evolution.py --generations 50 --battles 30 --depth 1
+$env:PYTHONIOENCODING='utf-8'; python scripts/run_evolution.py --generations 50 --battles 30 --depth 4 --top-k 6
 ```
 
 Luego validar:

@@ -1,0 +1,20 @@
+{
+  "weights": [
+    0.2428,
+    0.3414,
+    0.0444,
+    0.1564,
+    0.2255
+  ],
+  "fitness": 70.0,
+  "generation": 2,
+  "win_rate": 80.0,
+  "timestamp": "2026-06-08T19:05:11.415824",
+  "training_config": {
+    "population_size": 12,
+    "generations": 10,
+    "n_battles_fitness": 10,
+    "minimax_depth": 4,
+    "top_k_actions": 6
+  }
+}
