@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   DIFFICULTY_LABEL,
   DIFFICULTY_DESC,
@@ -9,7 +9,9 @@ import {
   type Pokemon,
   type Move,
   type Difficulty,
+  type PokeType,
 } from "./data";
+import { pickBattleBackground } from "./assets";
 import {
   fetchPokemon,
   startBattle,
@@ -30,13 +32,15 @@ import {
   MessagePanel,
   Pokeball,
 } from "./components";
+import { BattleTransitionOverlay } from "./BattleTransitionOverlay";
 
 type Mode = "human" | "ai";
 type TeamSize = 3 | 4;
-type Screen = "menu" | "select" | "intro" | "battle" | "result";
+type Screen = "menu" | "select" | "battle" | "result";
 type Speed = 1 | 2;
 type ActionView = "main" | "moves" | "party";
-type Anim = { side: "player" | "enemy" | null; kind: "attack" | "hit" | "faint" | "enter" | null };
+type AnimKind = "attack" | "hit" | "faint" | "faint-recall" | "enter" | "switch-in" | "pokeball-drop" | "switch-flash" | null;
+type Anim = { side: "player" | "enemy" | null; kind: AnimKind };
 
 const ENEMY_TRAINER = "https://play.pokemonshowdown.com/sprites/trainers/youngster-gen4dp.png";
 const PLAYER_TRAINER_BACK = "https://play.pokemonshowdown.com/sprites/trainers/red.png";
@@ -55,7 +59,7 @@ export default function PokefisiApp() {
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [initialBattleResponse, setInitialBattleResponse] = useState<BattleResponse | null>(null);
 
-  // Equipos para IntroScreen y ResultScreen (derivados del backend)
+  // Equipos para ResultScreen (derivados del backend)
   const [playerTeam, setPlayerTeam] = useState<Pokemon[]>([]);
   const [enemyTeam, setEnemyTeam] = useState<Pokemon[]>([]);
   const [winner, setWinner] = useState<"player" | "enemy" | null>(null);
@@ -88,7 +92,7 @@ export default function PokefisiApp() {
       setInitialBattleResponse(response);
       setPlayerTeam(response.currentState.player.party.map((s) => mapBackendPartySlot(s, pokemonPool)));
       setEnemyTeam(response.currentState.enemy.party.map((s) => mapBackendPartySlot(s, pokemonPool)));
-      setScreen("intro");
+      setScreen("battle");
     } catch (err) {
       setApiError(err instanceof Error ? err.message : String(err));
     } finally {
@@ -110,7 +114,7 @@ export default function PokefisiApp() {
       setInitialBattleResponse(response);
       setPlayerTeam(chosen);
       setEnemyTeam(response.currentState.enemy.party.map((s) => mapBackendPartySlot(s, pokemonPool)));
-      setScreen("intro");
+      setScreen("battle");
     } catch (err) {
       setApiError(err instanceof Error ? err.message : String(err));
     } finally {
@@ -146,7 +150,7 @@ export default function PokefisiApp() {
       setPlayerTeam(response.currentState.player.party.map((s) => mapBackendPartySlot(s, pokemonPool)));
       setEnemyTeam(response.currentState.enemy.party.map((s) => mapBackendPartySlot(s, pokemonPool)));
       setWinner(null);
-      setScreen("intro");
+      setScreen("battle");
     } catch (err) {
       setApiError(err instanceof Error ? err.message : String(err));
     } finally {
@@ -207,14 +211,6 @@ export default function PokefisiApp() {
             pokemonPool={pokemonPool}
             onBack={() => setScreen("menu")}
             onConfirm={handleConfirmTeam}
-          />
-        )}
-        {screen === "intro" && (
-          <IntroScreen
-            mode={mode}
-            playerTeam={playerTeam}
-            enemyTeam={enemyTeam}
-            onDone={() => setScreen("battle")}
           />
         )}
         {screen === "battle" && sessionId && initialBattleResponse && (
@@ -485,7 +481,7 @@ function IntroScreen({
         </div>
         <div className="absolute bottom-32 left-24 anim-enter">
           <div className="flex flex-col items-center gap-2">
-            <img src={PLAYER_TRAINER_BACK} alt="Jugador" className="h-56" style={{ imageRendering: "pixelated", transform: "scaleX(-1)" }} />
+            <img src={PLAYER_TRAINER_BACK} alt="Jugador" className="h-66" style={{ imageRendering: "pixelated", transform: "scaleX(-1)" }} />
             <TeamPokeballRow team={playerTeam} />
           </div>
         </div>
@@ -528,6 +524,20 @@ function BattleScreen({
   const [paused, setPaused] = useState(false);
   const [speed, setSpeed] = useState<Speed>(1);
 
+  // Fondo Gen 6: se elige una vez al montar según el tipo del Pokemon activo inicial.
+  const [battleBg] = useState<string>(() => {
+    const activeName = initialResponse.currentState.player.active.name;
+    const found = pokemonPool.find((p) => p.name === activeName);
+    return pickBattleBackground(found?.types[0] as PokeType | undefined);
+  });
+
+  // Overlay VS: bloquea los frames iniciales hasta que la animación termina.
+  const [showVsTransition, setShowVsTransition] = useState(true);
+  const handleVsDone = useCallback(() => setShowVsTransition(false), []);
+
+  // Lados con sprite oculto: se usa para no mostrar Pokémon debilitados ni antes de la entrada inicial.
+  const [hiddenSides, setHiddenSides] = useState<Set<"player" | "enemy">>(() => new Set(["player", "enemy"]));
+
   const speedRef = useRef(speed);
   useEffect(() => { speedRef.current = speed; }, [speed]);
 
@@ -561,14 +571,20 @@ function BattleScreen({
         setAnim({ side: null, kind: null });
       } else if (animation.type === "faint" && animation.side) {
         const side = animation.side as "player" | "enemy";
-        setAnim({ side, kind: "faint" });
+        setAnim({ side, kind: "faint-recall" });
         setBackendState(state);
-        await delay(800);
+        await delay(1300);
         setAnim({ side: null, kind: null });
+        setHiddenSides((prev) => { const next = new Set(prev); next.add(side); return next; });
       } else if (animation.type === "switch" && animation.side) {
         const side = animation.side as "player" | "enemy";
-        setAnim({ side, kind: "enter" });
+        setAnim({ side, kind: "pokeball-drop" });
+        await delay(400);
+        setAnim({ side, kind: "switch-flash" });
+        await delay(220);
         setBackendState(state);
+        setHiddenSides((prev) => { const next = new Set(prev); next.delete(side); return next; });
+        setAnim({ side, kind: "switch-in" });
         await delay(650);
         setAnim({ side: null, kind: null });
       } else {
@@ -599,19 +615,51 @@ function BattleScreen({
       setNeedsPlayerSwap(false);
       setView("main");
     }
-    setBusy(fs.panel.locked);
+    // Para AI-vs-AI: panel.locked siempre es true (bloqueo de UI), pero el loop
+    // necesita busy=false para disparar el siguiente turno.
+    setBusy(mode === "human" ? fs.panel.locked : false);
   };
 
   // ── Intro al entrar a BattleScreen ─────────────────────────────────────────
 
   const introRan = useRef(false);
   useEffect(() => {
-    if (introRan.current) return;
+    if (showVsTransition || introRan.current) return;
     introRan.current = true;
-    applyResponse(initialResponse);
-    // Efecto de entrada único; introRan.current evita doble ejecución en StrictMode.
+
+    let cancelled = false;
+
+    async function runInitialEntrance() {
+      setHiddenSides(new Set(["player", "enemy"]));
+
+      // Pokémon enemigo entra primero
+      setAnim({ side: "enemy", kind: "pokeball-drop" });
+      await delay(400);
+      setAnim({ side: "enemy", kind: "switch-flash" });
+      await delay(220);
+      setHiddenSides((prev) => { const next = new Set(prev); next.delete("enemy"); return next; });
+      setAnim({ side: "enemy", kind: "switch-in" });
+      await delay(650);
+
+      // Pokémon jugador entra después
+      setAnim({ side: "player", kind: "pokeball-drop" });
+      await delay(400);
+      setAnim({ side: "player", kind: "switch-flash" });
+      await delay(220);
+      setHiddenSides((prev) => { const next = new Set(prev); next.delete("player"); return next; });
+      setAnim({ side: "player", kind: "switch-in" });
+      await delay(650);
+
+      if (cancelled) return;
+      setAnim({ side: null, kind: null });
+      await applyResponse(initialResponse);
+    }
+
+    runInitialEntrance();
+    return () => { cancelled = true; };
+    // Se dispara cuando showVsTransition pasa a false; introRan evita doble ejecución.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [showVsTransition]);
 
   // ── Loop de IA vs IA ───────────────────────────────────────────────────────
 
@@ -677,7 +725,12 @@ function BattleScreen({
 
   return (
     <div className="absolute inset-0 p-4">
-      <div className="relative h-full pixel-border overflow-hidden rounded-md bg-gradient-to-b from-[oklch(0.85_0.08_220)] via-[oklch(0.9_0.08_180)] to-[oklch(0.85_0.14_135)]">
+      <div
+        className="relative h-full pixel-border overflow-hidden rounded-md bg-cover bg-center"
+        style={{ backgroundImage: `url(${battleBg})`, backgroundColor: "oklch(0.85 0.08 220)" }}
+      >
+        {/* Overlay para contraste de HUDs y panel inferior */}
+        <div className="absolute inset-0 bg-gradient-to-b from-black/10 via-transparent to-black/25 pointer-events-none z-0" />
 
         {/* Controles IA vs IA */}
         {mode === "ai" && (
@@ -700,35 +753,65 @@ function BattleScreen({
         </button>
 
         {/* HUD enemigo */}
-        <div className="absolute top-6 left-6 z-20">
+        <div className="absolute top-20 left-50 z-20">
           <PokemonHUD pokemon={enemyActive} side="enemy" />
           <div className="mt-2"><TeamPokeballRow team={enemyParty} /></div>
         </div>
 
         {/* Sprite enemigo */}
-        <div className="absolute top-12 right-[12%] z-10">
+        <div className="absolute top-60 right-[20%] z-10">
           <div className="relative">
             <div className="absolute -bottom-4 left-1/2 -translate-x-1/2 w-48 h-10 rounded-[50%] bg-[oklch(0.55_0.1_130)] opacity-60 blur-[1px]" />
+            {/* Pokeball cayendo (fase 1 switch) */}
+            {anim.side === "enemy" && anim.kind === "pokeball-drop" && (
+              <div className="absolute inset-0 flex items-end justify-center pb-2 z-10 anim-pokeball-drop">
+                <Pokeball size={44} state="alive" />
+              </div>
+            )}
+            {/* Flash de apertura (fase 2 switch) */}
+            {anim.side === "enemy" && anim.kind === "switch-flash" && (
+              <div className="absolute inset-0 flex items-center justify-center z-10">
+                <div className="w-28 h-28 rounded-full bg-white anim-switch-flash" />
+              </div>
+            )}
             <div className={`relative transition-opacity
+              ${(anim.side === "enemy" && (anim.kind === "pokeball-drop" || anim.kind === "switch-flash")) || hiddenSides.has("enemy") ? "opacity-0" : ""}
               ${anim.side === "enemy" && anim.kind === "hit" ? "anim-shake anim-flash" : ""}
               ${anim.side === "enemy" && anim.kind === "attack" ? "anim-attack-enemy" : ""}
+              ${anim.side === "enemy" && anim.kind === "faint-recall" ? "anim-faint-recall" : ""}
               ${anim.side === "enemy" && anim.kind === "faint" ? "anim-faint" : ""}
               ${anim.side === "enemy" && anim.kind === "enter" ? "anim-enter" : ""}
+              ${anim.side === "enemy" && anim.kind === "switch-in" ? "anim-switch-in" : ""}
             `}>
-              <img src={enemyActive.sprite} alt={enemyActive.name} className="h-36 anim-float" style={{ imageRendering: "pixelated" }} />
+              <img src={enemyActive.sprite} alt={enemyActive.name} className="h-50 anim-float" style={{ imageRendering: "pixelated" }} />
             </div>
           </div>
         </div>
 
         {/* Sprite jugador */}
-        <div className="absolute bottom-[26%] left-[10%] z-10">
+        <div className="absolute bottom-[26%] left-[20%] z-10">
           <div className="relative">
             <div className="absolute -bottom-6 left-1/2 -translate-x-1/2 w-64 h-12 rounded-[50%] bg-[oklch(0.5_0.1_125)] opacity-70 blur-[1px]" />
-            <div className={`relative
+            {/* Pokeball cayendo (fase 1 switch) */}
+            {anim.side === "player" && anim.kind === "pokeball-drop" && (
+              <div className="absolute inset-0 flex items-end justify-center pb-2 z-10 anim-pokeball-drop">
+                <Pokeball size={56} state="alive" />
+              </div>
+            )}
+            {/* Flash de apertura (fase 2 switch) */}
+            {anim.side === "player" && anim.kind === "switch-flash" && (
+              <div className="absolute inset-0 flex items-center justify-center z-10">
+                <div className="w-36 h-36 rounded-full bg-white anim-switch-flash" />
+              </div>
+            )}
+            <div className={`relative transition-opacity
+              ${(anim.side === "player" && (anim.kind === "pokeball-drop" || anim.kind === "switch-flash")) || hiddenSides.has("player") ? "opacity-0" : ""}
               ${anim.side === "player" && anim.kind === "hit" ? "anim-shake anim-flash" : ""}
               ${anim.side === "player" && anim.kind === "attack" ? "anim-attack-player" : ""}
+              ${anim.side === "player" && anim.kind === "faint-recall" ? "anim-faint-recall" : ""}
               ${anim.side === "player" && anim.kind === "faint" ? "anim-faint" : ""}
               ${anim.side === "player" && anim.kind === "enter" ? "anim-enter" : ""}
+              ${anim.side === "player" && anim.kind === "switch-in" ? "anim-switch-in" : ""}
             `}>
               <img
                 src={playerActive.spriteBack}
@@ -742,7 +825,7 @@ function BattleScreen({
         </div>
 
         {/* HUD jugador */}
-        <div className="absolute bottom-[28%] right-6 z-20">
+        <div className="absolute bottom-[28%] right-50 z-20">
           <PokemonHUD pokemon={playerActive} side="player" />
           <div className="mt-2"><TeamPokeballRow team={playerParty} align="right" /></div>
         </div>
@@ -795,6 +878,17 @@ function BattleScreen({
               </div>
             </PixelPanel>
           </ModalOverlay>
+        )}
+
+        {/* Overlay VS cinematico — cubre la batalla durante 4s al inicio */}
+        {showVsTransition && (
+          <BattleTransitionOverlay
+            playerName={backendState.player.trainer}
+            enemyName={backendState.enemy.trainer}
+            playerTrainerSrc={PLAYER_TRAINER_BACK}
+            enemyTrainerSrc={ENEMY_TRAINER}
+            onDone={handleVsDone}
+          />
         )}
       </div>
     </div>
