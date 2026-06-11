@@ -1,5 +1,6 @@
 import type { ReactNode, ButtonHTMLAttributes } from "react";
 import { TYPE_LABEL, type PokeType, type Pokemon, type Move } from "./data";
+import { getMoveCategory, MOVE_CATEGORY_URL, TYPE_SPRITE_URL } from "./assets";
 
 /* ============ Pixel primitives ============ */
 
@@ -187,6 +188,7 @@ export function MoveButton({
   disabled?: boolean;
 }) {
   const noPP = move.pp <= 0;
+  const category = getMoveCategory(move.type, move.power);
   return (
     <button
       disabled={disabled || noPP}
@@ -197,9 +199,22 @@ export function MoveButton({
     >
       <div className="text-[10px] leading-tight">{move.name}</div>
       <div className="flex items-center justify-between mt-2 text-[8px]">
-        <span className="bg-ink/70 px-1.5 py-0.5 rounded-sm">
-          {TYPE_LABEL[move.type]}
-        </span>
+        <div className="flex items-center gap-1">
+          <img
+            src={TYPE_SPRITE_URL[move.type]}
+            alt={TYPE_LABEL[move.type]}
+            width={60}
+            height={24}
+            style={{ imageRendering: "pixelated" }}
+          />
+          <img
+            src={MOVE_CATEGORY_URL[category]}
+            alt={category}
+            width={60}
+            height={24}
+            style={{ imageRendering: "pixelated" }}
+          />
+        </div>
         <span>PP {move.pp}/{move.ppMax}</span>
       </div>
     </button>

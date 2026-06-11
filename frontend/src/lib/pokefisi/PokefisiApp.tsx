@@ -945,7 +945,7 @@ function ActionPanel({
             onClick={() => { setView("moves"); onMessage("Elige un movimiento."); }}
             className="!text-base"
           >
-            ⚔ LUCHAR
+            LUCHAR
           </PixelButton>
           <PixelButton
             variant="secondary"
@@ -954,7 +954,7 @@ function ActionPanel({
             onClick={() => setView("party")}
             className="!text-base"
           >
-            ◉ POKÉMON
+            POKÉMON
           </PixelButton>
         </div>
       )}
