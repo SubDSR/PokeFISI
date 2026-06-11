@@ -1,0 +1,15 @@
+RESUMEN DE EVOLUCIÓN — PokeFISI MinimaxAgent
+==================================================
+Generaciones:    15
+Población:       16
+Batallas/ind:    12
+Profundidad MM:  4
+Top-K acciones:  6
+
+Mejor fitness:   70.8333
+Win rate final:  83.3%
+Pesos óptimos:   [0.8294, 0.6185, 0.7732, 0.5774, 0.7046]
+
+Progresión (cada 10 generaciones):
+  Gen   1 | Mejor 70.83 | Prom 38.18
+  Gen  10 | Mejor 70.83 | Prom 35.10

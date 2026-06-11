@@ -1,0 +1,6 @@
+# PokeFISI - Dependencias
+# El proyecto usa exclusivamente la biblioteca estándar de Python 3.10+
+# No requiere paquetes externos (sin librerías de terceros)
+
+# Para desarrollo y tests:
+# pytest>=7.0          # tests unitarios (opcional, instalar con: pip install pytest)

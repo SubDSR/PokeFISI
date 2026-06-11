@@ -4,9 +4,10 @@ import argparse
 import random
 from pathlib import Path
 
-from backend.agent_labels import build_agent_labels
-from backend.agents import HeuristicAgent, HumanAgent, RandomAgent
-from backend.battle import BattleEngine, BattleState, build_random_team
+from backend.agents.labels import build_agent_labels
+from backend.agents import HeuristicAgent, HumanAgent, MinimaxAgent, RandomAgent
+from backend.battle import BattleEngine, BattleState, build_balanced_teams, build_random_team
+from backend.config import MANUAL_WEIGHTS, MINIMAX_DEPTH, MINIMAX_TOP_K_ACTIONS, load_agent_weights
 from backend.experiments import run_experiment
 from backend.server import run_server
 from backend.ui import ConsoleBattleUI, ReplayBattleUI
@@ -19,6 +20,23 @@ def create_agent(agent_name: str, rng: random.Random):
         return HeuristicAgent()
     if agent_name == "human":
         return HumanAgent()
+    if agent_name == "minimax":
+        sim_rng = random.Random(rng.randint(0, 1_000_000))
+        return MinimaxAgent(
+            depth=MINIMAX_DEPTH,
+            top_k_actions=MINIMAX_TOP_K_ACTIONS,
+            weights=list(MANUAL_WEIGHTS),
+            rng=sim_rng,
+        )
+    if agent_name == "minimax-optimized":
+        sim_rng = random.Random(rng.randint(0, 1_000_000))
+        weights = load_agent_weights(use_optimized=True)
+        return MinimaxAgent(
+            depth=MINIMAX_DEPTH,
+            top_k_actions=MINIMAX_TOP_K_ACTIONS,
+            weights=weights,
+            rng=sim_rng,
+        )
     raise ValueError(f"Agente no soportado: {agent_name}")
 
 
@@ -36,8 +54,7 @@ def build_ui(args):
 def run_single_battle(args) -> None:
     rng = random.Random(args.seed)
     trainer1_name, trainer2_name = build_agent_labels(args.agent1, args.agent2)
-    team1 = build_random_team(trainer1_name, args.team_size, rng)
-    team2 = build_random_team(trainer2_name, args.team_size, rng)
+    team1, team2 = build_balanced_teams(trainer1_name, trainer2_name, args.team_size, rng)
     state = BattleState(team1, team2)
     agents = [create_agent(args.agent1, rng), create_agent(args.agent2, rng)]
     ui = build_ui(args)
@@ -94,10 +111,11 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--mode", choices=["battle", "experiment", "serve"], default="battle")
     parser.add_argument("--ui", choices=["console", "replay"], default="console")
     parser.add_argument("--team-size", type=int, choices=[3, 4], default=3)
-    parser.add_argument("--agent1", choices=["random", "heuristic", "human"], default="random")
-    parser.add_argument("--agent2", choices=["random", "heuristic", "human"], default="random")
+    _agent_choices = ["random", "heuristic", "human", "minimax", "minimax-optimized"]
+    parser.add_argument("--agent1", choices=_agent_choices, default="random")
+    parser.add_argument("--agent2", choices=_agent_choices, default="random")
     parser.add_argument("--battles", type=int, default=20)
-    parser.add_argument("--seed", type=int, default=7)
+    parser.add_argument("--seed", type=int, default=None)
     parser.add_argument("--quiet", action="store_true")
     parser.add_argument("--message-delay", type=float, default=0.35)
     parser.add_argument("--decision-delay", type=float, default=1.0)

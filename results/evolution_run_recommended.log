@@ -1,0 +1,54 @@
+Iniciando evolución con 15 generaciones...
+Nota: con depth=4, top_k=6 y 12 batallas/individuo
+      Tiempo estimado: 10–58s por generación
+
+
+============================================================
+  ALGORITMO GENÉTICO — PokeFISI MinimaxAgent
+  Población: 16  |  Generaciones: 15
+  Batallas/individuo: 12  |  Profundidad: 4  |  Top-K: 6
+============================================================
+
+Evaluando generación 0 (inicial)...
+  [1/16] fitness=17.50  win=33.3%
+  [2/16] fitness=28.33  win=41.7%
+  [3/16] fitness=9.17  win=25.0%
+  [4/16] fitness=17.50  win=33.3%
+  [5/16] fitness=45.83  win=58.3%
+  [6/16] fitness=17.50  win=33.3%
+  [7/16] fitness=50.83  win=66.7%
+  [8/16] fitness=9.17  win=25.0%
+  [9/16] fitness=52.50  win=66.7%
+  [10/16] fitness=16.67  win=33.3%
+  [11/16] fitness=24.17  win=41.7%
+  [12/16] fitness=40.83  win=58.3%
+  [13/16] fitness=43.33  win=58.3%
+  [14/16] fitness=26.67  win=41.7%
+  [15/16] fitness=26.67  win=41.7%
+  [16/16] fitness=27.50  win=41.7%
+Generación   1/15 | Mejor: 70.83 | Promedio: 38.18 | Tiempo: 1350.7s
+Generación   2/15 | Mejor: 70.83 | Promedio: 34.43 | Tiempo: 1486.5s
+Generación   3/15 | Mejor: 70.83 | Promedio: 30.26 | Tiempo: 1196.9s
+Generación   4/15 | Mejor: 70.83 | Promedio: 37.34 | Tiempo: 849.0s
+Generación   5/15 | Mejor: 70.83 | Promedio: 28.70 | Tiempo: 1291.2s
+Generación   6/15 | Mejor: 70.83 | Promedio: 34.90 | Tiempo: 1305.5s
+Generación   7/15 | Mejor: 70.83 | Promedio: 38.96 | Tiempo: 943.9s
+Generación   8/15 | Mejor: 70.83 | Promedio: 32.14 | Tiempo: 858.6s
+Generación   9/15 | Mejor: 70.83 | Promedio: 34.11 | Tiempo: 1342.3s
+Generación  10/15 | Mejor: 70.83 | Promedio: 35.10 | Tiempo: 1289.2s
+Generación  11/15 | Mejor: 70.83 | Promedio: 34.11 | Tiempo: 1002.1s
+Generación  12/15 | Mejor: 70.83 | Promedio: 34.48 | Tiempo: 712.6s
+Generación  13/15 | Mejor: 70.83 | Promedio: 31.61 | Tiempo: 597.1s
+Generación  14/15 | Mejor: 70.83 | Promedio: 40.94 | Tiempo: 612.0s
+Generación  15/15 | Mejor: 70.83 | Promedio: 40.21 | Tiempo: 825.7s
+
+============================================================
+  EVOLUCIÓN COMPLETADA
+  Mejor fitness: 70.8333
+  Win rate:      83.3%
+  Pesos:         [0.8294, 0.6185, 0.7732, 0.5774, 0.7046]
+============================================================
+
+✓ Historial exportado: C:\ProyectosUniversidad\PokeFISI\results\evolution_history.csv
+✓ Pesos guardados: [0.8294046642529949, 0.6185197523642461, 0.7731962378711933, 0.577352145256762, 0.7045718362149235]
+✓ Resumen exportado: C:\ProyectosUniversidad\PokeFISI\results\evolution_summary.txt

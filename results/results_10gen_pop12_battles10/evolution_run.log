@@ -1,0 +1,42 @@
+Iniciando evolución con 10 generaciones...
+Nota: con depth=4, top_k=6 y 10 batallas/individuo
+      Tiempo estimado: 6–36s por generación
+
+
+============================================================
+  ALGORITMO GENÉTICO — PokeFISI MinimaxAgent
+  Población: 12  |  Generaciones: 10
+  Batallas/individuo: 10  |  Profundidad: 4  |  Top-K: 6
+============================================================
+
+Evaluando generación 0 (inicial)...
+  [1/12] fitness=38.00  win=50.0%
+  [2/12] fitness=42.00  win=50.0%
+  [3/12] fitness=37.00  win=50.0%
+  [4/12] fitness=41.00  win=60.0%
+  [5/12] fitness=35.00  win=50.0%
+  [6/12] fitness=10.00  win=30.0%
+  [7/12] fitness=37.00  win=50.0%
+  [8/12] fitness=36.00  win=50.0%
+  [9/12] fitness=13.00  win=30.0%
+  [10/12] fitness=32.00  win=50.0%
+  [11/12] fitness=36.00  win=50.0%
+  [12/12] fitness=35.00  win=50.0%
+Generación   1/10 | Mejor: 47.00 | Promedio: 24.00 | Tiempo: 723.7s
+Generación   2/10 | Mejor: 70.00 | Promedio: 35.00 | Tiempo: 1030.3s
+Generación   3/10 | Mejor: 70.00 | Promedio: 34.67 | Tiempo: 866.8s
+Generación   4/10 | Mejor: 70.00 | Promedio: 28.67 | Tiempo: 585.2s
+Generación   5/10 | Mejor: 70.00 | Promedio: 36.67 | Tiempo: 503.6s
+Generación   6/10 | Mejor: 70.00 | Promedio: 36.08 | Tiempo: 645.5s
+Generación   7/10 | Mejor: 70.00 | Promedio: 30.50 | Tiempo: 440.4s
+Generación   8/10 | Mejor: 70.00 | Promedio: 34.00 | Tiempo: 468.6s
+Generación   9/10 | Mejor: 70.00 | Promedio: 30.33 | Tiempo: 411.6s
+Generación  10/10 | Mejor: 70.00 | Promedio: 29.00 | Tiempo: 410.7s
+
+============================================================
+  EVOLUCIÓN COMPLETADA
+  Mejor fitness: 70.0000
+  Win rate:      80.0%
+  Pesos:         [0.2428, 0.3414, 0.0444, 0.1564, 0.2255]
+============================================================
+

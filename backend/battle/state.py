@@ -8,12 +8,25 @@ class BattleState:
         self.teams = [team1, team2]
         self.turn_number = 1
         self.log: list[str] = []
+        self.last_actions: list[BattleAction | None] = [None, None]
 
     def team_of(self, player_index: int) -> TeamState:
         return self.teams[player_index]
 
     def opponent_of(self, player_index: int) -> TeamState:
         return self.teams[1 - player_index]
+
+    def clone(self) -> "BattleState":
+        """Copia profunda independiente del estado actual.
+
+        Los objetos clonados no comparten referencias con el original.
+        Usado exclusivamente por el árbol de búsqueda Minimax.
+        """
+        cloned = BattleState(self.teams[0].clone(), self.teams[1].clone())
+        cloned.turn_number = self.turn_number
+        cloned.log = list(self.log)
+        cloned.last_actions = list(self.last_actions)
+        return cloned
 
     def battle_over(self) -> bool:
         return any(team.all_fainted() for team in self.teams)

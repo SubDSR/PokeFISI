@@ -4,9 +4,10 @@ from __future__ import annotations
 
 import random
 
-from backend.agent_labels import build_agent_labels
-from backend.agents import HeuristicAgent, RandomAgent
-from backend.battle import BattleEngine, BattleState, build_random_team
+from backend.agents.labels import build_agent_labels
+from backend.agents import HeuristicAgent, MinimaxAgent, RandomAgent
+from backend.battle import BattleEngine, BattleState, build_balanced_teams
+from backend.config import MANUAL_WEIGHTS, MINIMAX_DEPTH, MINIMAX_TOP_K_ACTIONS, load_agent_weights
 from backend.ui import ConsoleBattleUI
 
 
@@ -15,6 +16,23 @@ def create_agent(agent_name: str, rng: random.Random):
         return RandomAgent(rng=rng)
     if agent_name == "heuristic":
         return HeuristicAgent()
+    if agent_name == "minimax":
+        sim_rng = random.Random(rng.randint(0, 1_000_000))
+        return MinimaxAgent(
+            depth=MINIMAX_DEPTH,
+            top_k_actions=MINIMAX_TOP_K_ACTIONS,
+            weights=list(MANUAL_WEIGHTS),
+            rng=sim_rng,
+        )
+    if agent_name == "minimax-optimized":
+        sim_rng = random.Random(rng.randint(0, 1_000_000))
+        weights = load_agent_weights(use_optimized=True)
+        return MinimaxAgent(
+            depth=MINIMAX_DEPTH,
+            top_k_actions=MINIMAX_TOP_K_ACTIONS,
+            weights=weights,
+            rng=sim_rng,
+        )
     raise ValueError(f"Agente no soportado: {agent_name}")
 
 
@@ -32,8 +50,7 @@ def run_experiment(
     turn_counts: list[int] = []
 
     for _ in range(battles):
-        team1 = build_random_team(trainer1_name, team_size, rng)
-        team2 = build_random_team(trainer2_name, team_size, rng)
+        team1, team2 = build_balanced_teams(trainer1_name, trainer2_name, team_size, rng)
         state = BattleState(team1, team2)
         agents = [create_agent(agent1_name, rng), create_agent(agent2_name, rng)]
         engine = BattleEngine(

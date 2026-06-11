@@ -1,0 +1,17 @@
+Traceback (most recent call last):
+  File "C:\ProyectosUniversidad\PokeFISI\scripts\run_evolution.py", line 58, in <module>
+    main()
+    ~~~~^^
+  File "C:\ProyectosUniversidad\PokeFISI\scripts\run_evolution.py", line 54, in main
+    run_evolution(config)
+    ~~~~~~~~~~~~~^^^^^^^^
+  File "C:\ProyectosUniversidad\PokeFISI\backend\experiments\evolution.py", line 260, in run_evolution
+    _export_history(history, cfg)
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^
+  File "C:\ProyectosUniversidad\PokeFISI\backend\experiments\evolution.py", line 296, in _export_history
+    print(f"\u2713 Historial exportado: {csv_path}")
+    ~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\USER\AppData\Local\Programs\Python\Python313\Lib\encodings\cp1252.py", line 19, in encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+           ~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'charmap' codec can't encode character '\u2713' in position 0: character maps to <undefined>

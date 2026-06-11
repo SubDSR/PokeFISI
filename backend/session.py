@@ -5,9 +5,10 @@ from __future__ import annotations
 import random
 import uuid
 
-from backend.agents import RandomAgent
-from backend.battle import BattleEngine, BattleState, build_random_team
+from backend.battle import BattleEngine, BattleState, build_balanced_teams
+from backend.battle.factory import build_team_from_species, build_random_team
 from backend.battle.models import BattleAction
+from backend.config import build_agent, VALID_DIFFICULTIES
 from backend.ui.view_state import build_view_state
 
 
@@ -99,18 +100,32 @@ class SessionFrameCollector:
 
 
 class BattleSession:
-    def __init__(self, mode: str, team_size: int = 3, seed: int | None = None):
+    def __init__(
+        self,
+        mode: str,
+        team_size: int = 3,
+        seed: int | None = None,
+        difficulty: str = "medium",
+        player_pokemon_ids: list[str] | None = None,
+    ):
         self.session_id = uuid.uuid4().hex
         self.mode = mode
+        self.difficulty = difficulty if difficulty in VALID_DIFFICULTIES else "medium"
         self.seed = seed if seed is not None else random.randrange(1, 10_000_000)
         self.rng = random.Random(self.seed)
         self.collector = SessionFrameCollector(locked_panel=mode == "ai-vs-ai")
 
-        player_name = "Jugador" if mode == "human-vs-ai" else "IA 1"
-        team1 = build_random_team(player_name, team_size, self.rng)
-        team2 = build_random_team("IA 2", team_size, self.rng)
+        if mode == "human-vs-ai" and player_pokemon_ids:
+            from backend.data.pokemon import POKEDEX
+            team1 = build_team_from_species("Jugador", player_pokemon_ids, self.rng)
+            remaining_ids = [pid for pid in POKEDEX if pid not in player_pokemon_ids]
+            team2 = build_random_team("IA 2", team_size, self.rng, species_pool=remaining_ids)
+        else:
+            player_name = "Jugador" if mode == "human-vs-ai" else "IA 1"
+            team1, team2 = build_balanced_teams(player_name, "IA 2", team_size, self.rng)
+
         self.state = BattleState(team1, team2)
-        self.agents = [self._build_player_agent(), RandomAgent(name="IA 2", rng=self.rng)]
+        self.agents = [self._build_player_agent(), self._build_ai_agent()]
         self.engine = BattleEngine(self.state, self.agents, ui=self.collector, rng=self.rng)
 
     def start(self) -> dict:
@@ -194,6 +209,7 @@ class BattleSession:
                 break
             self.engine._execute_action(player_index, action)
 
+        self.state.last_actions = list(actions)
         self.state.turn_number += 1
         self._resolve_ai_forced_switches()
 
@@ -240,7 +256,10 @@ class BattleSession:
     def _build_player_agent(self):
         if self.mode == "human-vs-ai":
             return None
-        return RandomAgent(name="IA 1", rng=self.rng)
+        return build_agent(self.difficulty, rng=self.rng)
+
+    def _build_ai_agent(self):
+        return build_agent(self.difficulty, rng=self.rng)
 
     def _player_actions_for_view(self) -> list[BattleAction]:
         if self.state.battle_over():

@@ -1,0 +1,522 @@
+@import "tailwindcss" source(none);
+@source "./main.tsx";
+@source "./lib/pokefisi";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --color-cream: var(--cream);
+  --color-cream-dark: var(--cream-dark);
+  --color-ink: var(--ink);
+  --color-ink-soft: var(--ink-soft);
+  --color-pkblue: var(--pkblue);
+  --color-pkblue-deep: var(--pkblue-deep);
+  --color-pkyellow: var(--pkyellow);
+  --color-pkred: var(--pkred);
+  --color-pkgreen: var(--pkgreen);
+  --color-hp-high: var(--hp-high);
+  --color-hp-mid: var(--hp-mid);
+  --color-hp-low: var(--hp-low);
+  --color-gold: var(--gold);
+
+  --font-pixel: "Press Start 2P", system-ui, monospace;
+  --font-body: "VT323", "Courier New", monospace;
+}
+
+:root {
+  --radius: 0.5rem;
+
+  --background: oklch(0.97 0.02 95);
+  --foreground: oklch(0.2 0.04 260);
+  --card: oklch(0.98 0.015 90);
+  --card-foreground: oklch(0.2 0.04 260);
+  --popover: oklch(0.98 0.015 90);
+  --popover-foreground: oklch(0.2 0.04 260);
+  --primary: oklch(0.42 0.18 260);
+  --primary-foreground: oklch(0.98 0.01 90);
+  --secondary: oklch(0.92 0.02 90);
+  --secondary-foreground: oklch(0.2 0.04 260);
+  --muted: oklch(0.92 0.02 90);
+  --muted-foreground: oklch(0.45 0.03 260);
+  --accent: oklch(0.88 0.05 85);
+  --accent-foreground: oklch(0.2 0.04 260);
+  --destructive: oklch(0.55 0.22 27);
+  --destructive-foreground: oklch(0.98 0.01 90);
+  --border: oklch(0.42 0.18 260);
+  --input: oklch(0.85 0.02 90);
+  --ring: oklch(0.42 0.18 260);
+
+  --cream: oklch(0.96 0.025 90);
+  --cream-dark: oklch(0.88 0.04 85);
+  --ink: oklch(0.18 0.03 260);
+  --ink-soft: oklch(0.35 0.04 260);
+  --pkblue: oklch(0.5 0.18 250);
+  --pkblue-deep: oklch(0.32 0.15 260);
+  --pkyellow: oklch(0.85 0.17 90);
+  --pkred: oklch(0.6 0.22 25);
+  --pkgreen: oklch(0.75 0.18 145);
+  --hp-high: oklch(0.7 0.2 145);
+  --hp-mid: oklch(0.82 0.18 85);
+  --hp-low: oklch(0.6 0.23 25);
+  --gold: oklch(0.78 0.15 80);
+}
+
+@layer base {
+  * {
+    border-color: var(--color-border);
+  }
+
+  html, body, #root {
+    height: 100%;
+  }
+
+  body {
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+    font-family: var(--font-body);
+    image-rendering: pixelated;
+    -webkit-font-smoothing: none;
+  }
+
+  img {
+    image-rendering: pixelated;
+  }
+}
+
+/* Pixel utility classes */
+@utility pixel-border {
+  border: 4px solid var(--color-ink);
+  box-shadow:
+    0 4px 0 0 var(--color-ink),
+    inset -2px -2px 0 0 oklch(0 0 0 / 0.08);
+  border-radius: 6px;
+}
+
+@utility pixel-border-blue {
+  border: 4px solid var(--color-pkblue-deep);
+  box-shadow:
+    0 4px 0 0 var(--color-pkblue-deep),
+    inset -2px -2px 0 0 oklch(0 0 0 / 0.08);
+  border-radius: 6px;
+}
+
+@utility pixel-panel {
+  background: var(--color-cream);
+  border: 4px solid var(--color-ink);
+  border-radius: 8px;
+  box-shadow: 0 6px 0 0 var(--color-ink), 0 8px 24px -8px oklch(0 0 0 / 0.4);
+}
+
+@utility pixel-hud {
+  background: linear-gradient(180deg, var(--color-cream) 0%, var(--color-cream-dark) 100%);
+  border: 3px solid var(--color-ink);
+  border-radius: 4px;
+  box-shadow: 0 3px 0 0 var(--color-ink), inset 0 1px 0 0 oklch(1 0 0 / 0.6);
+}
+
+@utility font-pixel {
+  font-family: var(--font-pixel);
+  letter-spacing: 0.02em;
+}
+
+@utility font-body-pixel {
+  font-family: var(--font-body);
+  font-size: 1.25rem;
+  line-height: 1.2;
+}
+
+@utility btn-press {
+  transition: transform 80ms ease, box-shadow 80ms ease;
+}
+
+@utility scanlines {
+  background-image: repeating-linear-gradient(
+    0deg,
+    oklch(0 0 0 / 0.04) 0px,
+    oklch(0 0 0 / 0.04) 1px,
+    transparent 1px,
+    transparent 3px
+  );
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-6px); }
+  40% { transform: translateX(6px); }
+  60% { transform: translateX(-4px); }
+  80% { transform: translateX(4px); }
+}
+@keyframes flash {
+  0%, 100% { filter: brightness(1); }
+  50% { filter: brightness(2.5) saturate(0); }
+}
+@keyframes attack-player {
+  0%, 100% { transform: translate(0, 0); }
+  50% { transform: translate(40px, -20px); }
+}
+@keyframes attack-enemy {
+  0%, 100% { transform: translate(0, 0); }
+  50% { transform: translate(-40px, 20px); }
+}
+@keyframes faint {
+  0% { opacity: 1; transform: translateY(0); }
+  100% { opacity: 0; transform: translateY(40px); }
+}
+@keyframes enter-pokemon {
+  0% { opacity: 0; transform: translateY(-20px) scale(0.5); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+@keyframes float-y {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
+}
+
+.anim-shake { animation: shake 350ms ease; }
+.anim-flash { animation: flash 250ms ease 2; }
+.anim-attack-player { animation: attack-player 400ms ease; }
+.anim-attack-enemy { animation: attack-enemy 400ms ease; }
+.anim-faint { animation: faint 700ms ease forwards; }
+.anim-enter { animation: enter-pokemon 450ms cubic-bezier(0.34, 1.56, 0.64, 1); }
+.anim-blink { animation: blink 1.2s ease infinite; }
+.anim-float { animation: float-y 2.4s ease-in-out infinite; }
+
+/* Switch-in deluxe */
+@keyframes pokeball-drop {
+  0%   { opacity: 0; transform: translateY(-60px) scale(0.9); }
+  70%  { opacity: 1; transform: translateY(4px)   scale(1.05); }
+  100% { opacity: 1; transform: translateY(0)     scale(1); }
+}
+@keyframes pokeball-open-flash {
+  0%, 100% { opacity: 0; transform: scale(0.8); }
+  40%       { opacity: 0.9; transform: scale(1.3); }
+}
+@keyframes pokemon-switch-in {
+  0%   { opacity: 0; transform: scale(0.2)  translateY(10px); }
+  70%  { opacity: 1; transform: scale(1.08) translateY(-4px); }
+  100% { opacity: 1; transform: scale(1)    translateY(0); }
+}
+
+.anim-pokeball-drop { animation: pokeball-drop       250ms ease-out forwards; }
+.anim-switch-flash  { animation: pokeball-open-flash  120ms ease-out forwards; }
+.anim-switch-in     { animation: pokemon-switch-in    450ms cubic-bezier(0.34, 1.56, 0.64, 1) forwards; }
+
+/* Faint mejorado: shake + tinte rojo sostenido + recall a pokeball */
+@keyframes faint-recall {
+  0%   { opacity: 1; filter: none;                                                            transform: translateX(0)    translateY(0) scale(1);   }
+  10%  {             filter: sepia(1)   saturate(3)   hue-rotate(-40deg) brightness(1.2);     transform: translateX(-6px) translateY(0) scale(1);   }
+  20%  {             filter: sepia(1)   saturate(3)   hue-rotate(-40deg) brightness(1.2);     transform: translateX(6px)  translateY(0) scale(1);   }
+  30%  { opacity: 1; filter: sepia(0.9) saturate(2.5) hue-rotate(-35deg);                     transform: translateX(0)    translateY(0) scale(1);   }
+  55%  { opacity: 1; filter: sepia(0.7) saturate(2)   hue-rotate(-30deg);                     transform: translateX(0)    translateY(0) scale(1);   }
+  100% { opacity: 0; filter: brightness(1.5);                                                 transform: translateY(-40px) scale(0.08); }
+}
+
+.anim-faint-recall { animation: faint-recall 1300ms ease-in forwards; }
+
+/* HP bar transition */
+.hp-fill { transition: width 700ms cubic-bezier(0.4, 0, 0.2, 1), background-color 400ms; }
+
+/* type badge colors */
+.type-water { background: #6890f0; color: white; }
+.type-fire { background: #f08030; color: white; }
+.type-grass { background: #78c850; color: white; }
+.type-electric { background: #f8d030; color: #333; }
+.type-normal { background: #a8a878; color: white; }
+.type-psychic { background: #f85888; color: white; }
+.type-ghost { background: #705898; color: white; }
+.type-dragon { background: #7038f8; color: white; }
+.type-fighting { background: #c03028; color: white; }
+.type-dark { background: #705848; color: white; }
+.type-ice { background: #98d8d8; color: #333; }
+.type-flying { background: #a890f0; color: white; }
+.type-poison { background: #a040a0; color: white; }
+.type-ground { background: #e0c068; color: #333; }
+.type-rock { background: #b8a038; color: white; }
+.type-bug { background: #a8b820; color: white; }
+.type-steel { background: #b8b8d0; color: #333; }
+.type-fairy { background: #ee99ac; color: white; }
+
+/* ──────────────────────────────────────────────────────────────────────────
+   Battle VS transition overlay
+   ────────────────────────────────────────────────────────────────────────── */
+
+.vs-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 80;
+  overflow: hidden;
+  pointer-events: auto;
+  background: transparent;
+  animation: vs-overlay-out 4s linear forwards;
+  isolation: isolate;
+}
+
+.vs-eclipse {
+  position: absolute;
+  inset: 0;
+  background: oklch(0.08 0.03 260 / 0.92);
+  animation: vs-eclipse 4s linear forwards;
+}
+
+.vs-pokeball-burst {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  z-index: 6;
+  transform: translate(-50%, -50%) scale(0);
+  filter: drop-shadow(0 0 18px white);
+  animation: vs-pokeball-burst 800ms cubic-bezier(0.2, 0.9, 0.25, 1.25) forwards;
+}
+
+.vs-logo {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  z-index: 20;
+  transform: translate(-50%, -50%) scale(0.2) rotate(-8deg);
+  font-family: var(--font-pixel);
+  font-size: clamp(2.4rem, 8vw, 6rem);
+  letter-spacing: -0.08em;
+  color: white;
+  text-shadow:
+    0 0 8px white,
+    0 0 22px var(--color-pkyellow),
+    5px 5px 0 var(--color-ink),
+    -5px -5px 0 var(--color-pkred);
+  opacity: 0;
+  animation: vs-logo 4s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+}
+
+.vs-diagonal {
+  position: absolute;
+  inset: -18%;
+  opacity: 0;
+  z-index: 2;
+  transform: translateX(0) skewX(-18deg);
+}
+
+.vs-diagonal-player {
+  clip-path: polygon(0 30%, 58% 0, 42% 100%, 0 100%);
+  background: linear-gradient(135deg, #ff243a 0%, #b60f2d 55%, #4d0716 100%);
+  animation: vs-panel-player 4s ease forwards;
+}
+
+.vs-diagonal-enemy {
+  clip-path: polygon(58% 0, 100% 0, 100% 72%, 42% 100%);
+  background: linear-gradient(315deg, #1f7bff 0%, #1550c8 55%, #06143f 100%);
+  animation: vs-panel-enemy 4s ease forwards;
+}
+
+.vs-speed-lines {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  opacity: 0;
+  background-image: repeating-linear-gradient(
+    -18deg,
+    transparent 0 18px,
+    oklch(1 0 0 / 0.24) 18px 22px,
+    transparent 22px 44px
+  );
+  animation: vs-speed-lines 4s linear forwards;
+}
+
+.vs-speed-lines-player {
+  clip-path: polygon(0 34%, 58% 0, 42% 100%, 0 100%);
+}
+
+.vs-speed-lines-enemy {
+  clip-path: polygon(58% 0, 100% 0, 100% 68%, 42% 100%);
+  transform: scaleX(-1);
+}
+
+.vs-trainer {
+  position: absolute;
+  z-index: 12;
+  opacity: 0;
+  filter: drop-shadow(8px 8px 0 oklch(0.08 0.03 260 / 0.5));
+}
+
+.vs-trainer img {
+  display: block;
+  height: clamp(20rem, 60vh, 34rem);
+  image-rendering: pixelated;
+}
+
+.vs-trainer-player {
+  left: 7%;
+  bottom: 7%;
+  transform: translate(-45%, 35%) scale(0.86);
+  animation: vs-trainer-player 4s cubic-bezier(0.2, 0.9, 0.2, 1) forwards;
+}
+
+.vs-trainer-player img {
+  transform: scaleX(-1);
+}
+
+.vs-trainer-enemy {
+  right: 7%;
+  top: 7%;
+  transform: translate(45%, -35%) scale(0.86);
+  animation: vs-trainer-enemy 4s cubic-bezier(0.2, 0.9, 0.2, 1) forwards;
+}
+
+.vs-name {
+  position: absolute;
+  z-index: 18;
+  opacity: 0;
+  padding: 0.55rem 0.85rem;
+  border: 4px solid white;
+  background: oklch(0.1 0.03 260 / 0.72);
+  color: white;
+  font-family: var(--font-pixel);
+  font-size: clamp(0.65rem, 2vw, 1.1rem);
+  text-transform: uppercase;
+  text-shadow: 3px 3px 0 var(--color-ink);
+  box-shadow: 0 0 18px oklch(1 0 0 / 0.32);
+  animation: vs-name-pop 4s ease forwards;
+}
+
+.vs-name-player {
+  left: 8%;
+  bottom: 34%;
+}
+
+.vs-name-enemy {
+  right: 8%;
+  top: 34%;
+}
+
+.vs-final-flash {
+  position: absolute;
+  inset: 0;
+  z-index: 90;
+  background: white;
+  opacity: 0;
+  pointer-events: none;
+  animation: vs-final-flash 4s ease forwards;
+}
+
+@keyframes vs-eclipse {
+  0%   { opacity: 0; }
+  8%   { opacity: 0.92; }
+  80%  { opacity: 0.92; }
+  100% { opacity: 0; }
+}
+
+@keyframes vs-pokeball-burst {
+  0%   { opacity: 0; transform: translate(-50%, -50%) scale(0.05) rotate(-90deg); }
+  58%  { opacity: 1; transform: translate(-50%, -50%) scale(1.25) rotate(16deg); }
+  78%  { opacity: 1; transform: translate(-50%, -50%) scale(1.05) rotate(0); }
+  100% { opacity: 0; transform: translate(-50%, -50%) scale(2.2)  rotate(35deg); }
+}
+
+@keyframes vs-logo {
+  0%, 14% { opacity: 0; transform: translate(-50%, -50%) scale(0.2)  rotate(-8deg); }
+  20%      { opacity: 1; transform: translate(-50%, -50%) scale(1.16) rotate(-8deg); }
+  30%      { opacity: 1; transform: translate(-50%, -50%) scale(1)    rotate(-8deg); }
+  56%      { opacity: 1; transform: translate(-50%, -50%) scale(1.12) rotate(-6deg); }
+  70%      { opacity: 1; transform: translate(-50%, -50%) scale(1.22) rotate(4deg); }
+  83%      { opacity: 1; transform: translate(-50%, -50%) scale(1.36) rotate(18deg); }
+  100%     { opacity: 0; transform: translate(-50%, -50%) scale(3.4)  rotate(90deg); }
+}
+
+@keyframes vs-panel-player {
+  0%, 20% { opacity: 0; transform: translateX(-90%) skewX(-18deg); }
+  34%     { opacity: 1; transform: translateX(0)    skewX(-18deg); }
+  80%     { opacity: 1; transform: translateX(0)    skewX(-18deg); }
+  100%    { opacity: 0; transform: translateX(-12%) scale(1.08) skewX(-18deg); }
+}
+
+@keyframes vs-panel-enemy {
+  0%, 20% { opacity: 0; transform: translateX(90%)  skewX(-18deg); }
+  34%     { opacity: 1; transform: translateX(0)    skewX(-18deg); }
+  80%     { opacity: 1; transform: translateX(0)    skewX(-18deg); }
+  100%    { opacity: 0; transform: translateX(12%)  scale(1.08) skewX(-18deg); }
+}
+
+@keyframes vs-speed-lines {
+  0%, 22% { opacity: 0;    background-position: 0 0; }
+  35%     { opacity: 0.42; }
+  78%     { opacity: 0.35; background-position: 240px 0; }
+  100%    { opacity: 0;    background-position: 360px 0; }
+}
+
+@keyframes vs-trainer-player {
+  0%, 22% { opacity: 0; transform: translate(-45%,  35%) scale(0.86); }
+  38%     { opacity: 1; transform: translate(0,  0)   scale(0.95); }
+  60%     { opacity: 1; transform: translate(2%,  -2%) scale(1.12); }
+  80%     { opacity: 1; transform: translate(3%,  -3%) scale(1.2); }
+  100%    { opacity: 0; transform: translate(0,   0)   scale(1.35); }
+}
+
+@keyframes vs-trainer-enemy {
+  0%, 22% { opacity: 0; transform: translate(45%,  -35%) scale(0.86); }
+  38%     { opacity: 1; transform: translate(0,   0)    scale(0.95); }
+  60%     { opacity: 1; transform: translate(-2%, 2%)   scale(1.12); }
+  80%     { opacity: 1; transform: translate(-3%, 3%)   scale(1.2); }
+  100%    { opacity: 0; transform: translate(0,   0)    scale(1.35); }
+}
+
+@keyframes vs-name-pop {
+  0%, 48% { opacity: 0; transform: translateY(12px) scale(0.88); filter: brightness(1); }
+  55%     { opacity: 1; transform: translateY(0)    scale(1.08); filter: brightness(1.8); }
+  64%     { opacity: 1; transform: translateY(0)    scale(1);    filter: brightness(1); }
+  82%     { opacity: 1; transform: translateY(0)    scale(1); }
+  100%    { opacity: 0; transform: translateY(-8px) scale(1.12); }
+}
+
+@keyframes vs-final-flash {
+  0%, 78% { opacity: 0; }
+  84%     { opacity: 0.92; }
+  92%     { opacity: 0.38; }
+  100%    { opacity: 0; }
+}
+
+@keyframes vs-overlay-out {
+  0%, 88% { opacity: 1; }
+  100%    { opacity: 0; pointer-events: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .vs-overlay,
+  .vs-eclipse,
+  .vs-pokeball-burst,
+  .vs-logo,
+  .vs-diagonal,
+  .vs-speed-lines,
+  .vs-trainer,
+  .vs-name,
+  .vs-final-flash {
+    animation-duration: 1ms !important;
+    animation-delay: 0ms !important;
+  }
+}
