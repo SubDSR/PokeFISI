@@ -5,8 +5,8 @@ from __future__ import annotations
 import random
 import uuid
 
-from backend.agents import RandomAgent
 from backend.battle import BattleEngine, BattleState, build_balanced_teams
+from backend.battle.factory import build_team_from_species, build_random_team
 from backend.battle.models import BattleAction
 from backend.config import build_agent, VALID_DIFFICULTIES
 from backend.ui.view_state import build_view_state
@@ -106,6 +106,7 @@ class BattleSession:
         team_size: int = 3,
         seed: int | None = None,
         difficulty: str = "medium",
+        player_pokemon_ids: list[str] | None = None,
     ):
         self.session_id = uuid.uuid4().hex
         self.mode = mode
@@ -114,8 +115,15 @@ class BattleSession:
         self.rng = random.Random(self.seed)
         self.collector = SessionFrameCollector(locked_panel=mode == "ai-vs-ai")
 
-        player_name = "Jugador" if mode == "human-vs-ai" else "IA 1"
-        team1, team2 = build_balanced_teams(player_name, "IA 2", team_size, self.rng)
+        if mode == "human-vs-ai" and player_pokemon_ids:
+            from backend.data.pokemon import POKEDEX
+            team1 = build_team_from_species("Jugador", player_pokemon_ids, self.rng)
+            remaining_ids = [pid for pid in POKEDEX if pid not in player_pokemon_ids]
+            team2 = build_random_team("IA 2", team_size, self.rng, species_pool=remaining_ids)
+        else:
+            player_name = "Jugador" if mode == "human-vs-ai" else "IA 1"
+            team1, team2 = build_balanced_teams(player_name, "IA 2", team_size, self.rng)
+
         self.state = BattleState(team1, team2)
         self.agents = [self._build_player_agent(), self._build_ai_agent()]
         self.engine = BattleEngine(self.state, self.agents, ui=self.collector, rng=self.rng)

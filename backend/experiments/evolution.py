@@ -63,7 +63,7 @@ class EvolutionConfig:
     minimax_depth: int = MINIMAX_DEPTH
     top_k_actions: int = MINIMAX_TOP_K_ACTIONS
     team_size: int = 3
-    seed: int = 42
+    seed: int | None = 42
 
 
 def _random_individual(rng: random.Random) -> Individual:
@@ -269,6 +269,7 @@ def run_evolution(config: EvolutionConfig | None = None) -> list[GenerationStats
             "n_battles_fitness": cfg.n_battles_fitness,
             "minimax_depth": cfg.minimax_depth,
             "top_k_actions": cfg.top_k_actions,
+            "seed": cfg.seed,
         },
     )
     _export_summary(history, best_ever, cfg)
@@ -309,6 +310,7 @@ def _export_summary(
         f"Batallas/ind:    {cfg.n_battles_fitness}",
         f"Profundidad MM:  {cfg.minimax_depth}",
         f"Top-K acciones:  {cfg.top_k_actions}",
+        f"Seed:            {cfg.seed}",
         "",
         f"Mejor fitness:   {best.fitness:.4f}",
         f"Win rate final:  {best.win_rate:.1f}%",

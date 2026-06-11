@@ -1,0 +1,31 @@
+Iniciando evolución con 20 generaciones...
+Nota: con depth=4, top_k=6 y 20 batallas/individuo
+      Tiempo estimado: 16–96s por generación
+
+
+============================================================
+  ALGORITMO GENÉTICO — PokeFISI MinimaxAgent
+  Población: 16  |  Generaciones: 20
+  Batallas/individuo: 20  |  Profundidad: 4  |  Top-K: 6
+============================================================
+
+Evaluando generación 0 (inicial)...
+  [1/16] fitness=24.50  win=40.0%
+  [2/16] fitness=12.50  win=30.0%
+  [3/16] fitness=34.50  win=50.0%
+  [4/16] fitness=25.50  win=40.0%
+  [5/16] fitness=33.50  win=45.0%
+  [6/16] fitness=31.00  win=45.0%
+  [7/16] fitness=25.00  win=40.0%
+  [8/16] fitness=34.50  win=50.0%
+  [9/16] fitness=26.00  win=40.0%
+  [10/16] fitness=25.50  win=40.0%
+  [11/16] fitness=31.00  win=45.0%
+  [12/16] fitness=37.50  win=50.0%
+  [13/16] fitness=13.50  win=30.0%
+  [14/16] fitness=15.50  win=30.0%
+  [15/16] fitness=30.00  win=45.0%
+  [16/16] fitness=37.50  win=50.0%
+Generación   1/20 | Mejor: 57.00 | Promedio: 32.28 | Tiempo: 2392.3s
+Generación   2/20 | Mejor: 57.00 | Promedio: 31.28 | Tiempo: 2207.2s
+Generación   3/20 | Mejor: 57.00 | Promedio: 29.69 | Tiempo: 2047.0s

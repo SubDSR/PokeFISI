@@ -17,6 +17,12 @@ from backend.config import MINIMAX_DEPTH, MINIMAX_TOP_K_ACTIONS
 from backend.experiments.evolution import EvolutionConfig, run_evolution
 
 
+def _parse_seed(value: str) -> int | None:
+    if value.lower() in {"none", "null", "random"}:
+        return None
+    return int(value)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Algoritmo Genético — PokeFISI")
     parser.add_argument("--generations", type=int, default=50, help="Número de generaciones")
@@ -26,7 +32,7 @@ def main() -> None:
     parser.add_argument("--top-k", type=int, default=MINIMAX_TOP_K_ACTIONS, help="Acciones priorizadas por nodo")
     parser.add_argument("--mutation", type=float, default=0.2, help="Tasa de mutación")
     parser.add_argument("--team-size", type=int, default=3)
-    parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument("--seed", type=_parse_seed, default=42)
     args = parser.parse_args()
 
     config = EvolutionConfig(
