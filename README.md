@@ -10,7 +10,11 @@ PokeFISI es un simulador académico de combates por turnos basado en las mecáni
 2. [Arquitectura del Proyecto](#-arquitectura-del-proyecto)
 3. [Mecánicas del Simulador](#-mecánicas-del-simulador)
    - [Balance de Equipos (Reglas 1 a 5)](#balance-de-equipos-reglas-1-a-5)
+   - [Escalado de HP (Fórmula Gen 3)](#escalado-de-hp-fórmula-gen-3)
    - [Fórmula de Daño Calibrada](#fórmula-de-daño-calibrada)
+   - [Tabla de Efectividad de Tipos](#tabla-de-efectividad-de-tipos)
+   - [Flujo de Resolución de un Turno](#flujo-de-resolución-de-un-turno)
+   - [Sistema de PP y Struggle](#sistema-de-pp-y-struggle)
    - [Alcance y Simplificaciones](#alcance-y-simplificaciones)
 4. [Niveles de Dificultad e IA](#-niveles-de-dificultad-e-ia)
 5. [Agente Minimax y Optimizaciones](#-agente-minimax-y-optimizaciones)
@@ -18,6 +22,7 @@ PokeFISI es un simulador académico de combates por turnos basado en las mecáni
    - [Ordenamiento Heurístico (Move Ordering)](#ordenamiento-heurístico-move-ordering)
    - [Tabla de Transposición](#tabla-de-transposición)
    - [Control de Ramificación (Top-K)](#control-de-ramificación-top-k)
+   - [Modo Determinista del Simulador](#modo-determinista-del-simulador)
 6. [Optimización con Algoritmo Genético](#-optimización-con-algoritmo-genético)
    - [Función Heurística Compuesta](#función-heurística-compuesta)
    - [Función de Fitness](#función-de-fitness)
@@ -89,7 +94,13 @@ PokeFISI/
 
 ### Balance de Equipos (Reglas 1 a 5)
 Para asegurar batallas justas y estratégicas, el generador de equipos (`backend/battle/factory.py`) impone restricciones estrictas de diseño:
-1. **Regla 1 (Tier de Potencia)**: Clasificación de Pokémon en Tiers basados en su BST (*Base Stat Total*). Un equipo de 3 debe incluir 1 Pokémon de Tier A (Fuerte), 1 de Tier B (Medio) y 1 de Tier C (Débil).
+1. **Regla 1 (Tier de Potencia)**: Los 30 Pokémon se clasifican por BST (*Base Stat Total* = HP + Atk + Def + Speed) en 3 tiers:
+   - **Tier A** (BST ≥ 225): Mankey, Growlithe, Machop, Slowpoke, Doduo, Geodude, Pidgeotto, Sandshrew, Ponyta.
+   - **Tier B** (195 ≤ BST < 225): Charmander, Squirtle, Bellsprout, Spearow, Psyduck, Meowth, Seel, Venonat, Pikachu, Poliwag.
+   - **Tier C** (BST < 195): Abra, Magnemite, Oddish, Vulpix, Paras, Tentacool, Bulbasaur, Nidoran M/F, Rattata, Ekans.
+   - Equipo de **3**: 1A + 1B + 1C. Equipo de **4**: 1A + 2B + 1C.
+   - La diferencia máxima de BST entre cualquier par de equipos generados es ≈ 60 puntos.
+   - Si los constraints de Reglas 2 y 3 son imposibles de satisfacer, el generador degrada progresivamente: primero intenta solo con Reglas 1+2, y como último recurso solo Regla 1.
 2. **Regla 2 (Tipos Primarios Únicos)**: No pueden existir dos Pokémon en el mismo equipo con el mismo tipo primario.
 3. **Regla 3 (Sin Debilidad Compartida)**: El equipo no puede tener más de un Pokémon que reciba daño súper efectivo ($\ge 2\times$) por el mismo tipo de ataque elemental.
 4. **Regla 4 (STAB Garantizado)**: Cada Pokémon generado tiene garantizado al menos un movimiento ofensivo que coincide con su tipo (*Same Type Attack Bonus*).
@@ -111,8 +122,34 @@ El simulador implementa un subconjunto deliberadamente acotado de la mecánica o
 - No hay **objetos equipados** (*held items*) ni **clima** (lluvia, sol, granizo, tormenta de arena).
 - Los movimientos de **múltiples turnos** se resuelven en un único turno por simplicidad (e.g., Solar Beam).
 - No hay **golpes críticos** ni variación aleatoria de daño — el daño es completamente determinista.
+- Solo existen **4 estadísticas** por Pokémon: HP, Ataque, Defensa y Velocidad. Gen 3 oficial tiene 6 (añade Ataque Especial y Defensa Especial). En PokeFISI todos los movimientos, sean físicos o especiales, usan las mismas stats de Ataque y Defensa.
 
 Estas simplificaciones garantizan un entorno de información perfecta y determinismo total, lo que justifica directamente el uso de Minimax clásico.
+
+---
+
+### Escalado de HP (Fórmula Gen 3)
+
+Todos los Pokémon calculan su HP de combate aplicando la fórmula oficial de Gen 3 con parámetros fijos:
+
+$$\text{HP\_final} = \left\lfloor \frac{(2 \times \text{BaseHP} + \text{IV} + \lfloor \text{EV}/4 \rfloor) \times \text{Level}}{100} \right\rfloor + \text{Level} + 10$$
+
+*Parámetros fijos en PokeFISI*: $\text{IV} = 31$ (máximo), $\text{EV} = 0$, $\text{Level} = 50$.
+
+Con estos valores la fórmula se simplifica a:
+
+$$\text{HP\_final} = \left\lfloor \frac{(2 \times \text{BaseHP} + 31) \times 50}{100} \right\rfloor + 60$$
+
+Esto produce HP de combate entre **~2 y 3× mayores** que las stats base del Pokédex. Ejemplos representativos:
+
+| Pokémon | BaseHP | HP\_final |
+|---------|--------|-----------|
+| Rattata | 30 | 100 |
+| Bulbasaur | 45 | 120 |
+| Machop | 70 | 155 |
+| Slowpoke | 90 | 185 |
+
+Este escalado es la razón por la que `DAMAGE_SCALE = 2` en la fórmula de daño produce batallas de duración táctica: sin él, los ataques eliminarían a un Pokémon en 1-2 golpes.
 
 ---
 
@@ -128,6 +165,59 @@ $$\text{Damage} = \max\left(1, \text{Int}\left(\text{Round}\left(\frac{\frac{\te
 
 ---
 
+### Tabla de Efectividad de Tipos
+
+El multiplicador de tipo se obtiene de un chart oficial Gen 3 (fuente: Pokémon Showdown). Solo se almacenan las entradas no-unitarias — cualquier par no registrado vale 1.0 por defecto.
+
+| Multiplicador | Significado |
+|:---:|---|
+| `0.0` | Inmune — el movimiento no hace daño |
+| `0.5` | No muy efectivo |
+| `1.0` | Neutro (por defecto) |
+| `2.0` | Súper efectivo |
+
+**Tipos duales**: cuando un Pokémon defiende con dos tipos, los multiplicadores son **multiplicativos**. Ejemplos:
+
+| Atacante → Defensor | Tipo defensor | Multiplicador final |
+|---|---|:---:|
+| Fuego → Bulbasaur (Planta/Veneno) | Planta×2.0, Veneno×1.0 | **2.0×** |
+| Tierra → Geodude (Roca/Tierra) | Roca×1.0, Tierra×1.0 | **1.0×** |
+| Agua → Geodude (Roca/Tierra) | Roca×2.0, Tierra×2.0 | **4.0×** |
+| Normal → Gengar (fantasma — no implementado) | Ghost×0.0 | **0.0×** |
+
+Este multiplicador compuesto es el `TypeModifier` de la fórmula de daño y la base de los factores $f_{\text{ventaja tipo}}$ de la heurística.
+
+---
+
+### Flujo de Resolución de un Turno
+
+Cada turno sigue este orden de resolución, respetado tanto por el motor real (`engine.py`) como por el simulador Minimax (`simulator.py`):
+
+1. **Cambios forzados**: si algún Pokémon quedó debilitado el turno anterior, su entrenador elige un reemplazo antes de que comiencen las acciones normales.
+2. **Selección de acciones**: cada agente elige su acción del conjunto de acciones legales.
+3. **Ordenación de acciones**:
+   - Los *switches* tienen **prioridad sobre los movimientos** — se ejecutan primero.
+   - Dentro de la misma prioridad, el Pokémon de mayor velocidad actúa antes.
+   - Empate de velocidad → desempate aleatorio.
+4. **Ejecución en orden**: las acciones se aplican secuencialmente según el orden anterior.
+5. **Cancelación de movimiento**: si el Pokémon que eligió un movimiento cae durante la ejecución de la acción del rival (que actuó primero por velocidad), su movimiento pendiente **se cancela** — el sustituto no hereda la acción del caído.
+6. **Auto-switch**: tras cada acción que produce un KO, se resuelve inmediatamente el cambio forzado del equipo afectado.
+
+---
+
+### Sistema de PP y Struggle
+
+Cada movimiento tiene un número limitado de **PP** (*Power Points*) que se consume al usarlo, incluso si el movimiento falla por precisión. Cuando el PP de un movimiento llega a 0, ese movimiento deja de estar disponible como acción legal.
+
+Cuando un Pokémon no tiene ningún movimiento con PP restantes, la única acción disponible es **Struggle**:
+
+$$\text{Daño} = \left\lfloor \text{Attack} \times 0.5 \right\rfloor \quad \text{(mínimo 1)}$$
+$$\text{Retroceso} = \left\lfloor \text{Daño} / 4 \right\rfloor \quad \text{(mínimo 1)}$$
+
+Struggle es el único mecanismo en PokeFISI donde un Pokémon puede eliminarse a sí mismo. La tabla de transposición registra los PP de cada movimiento en su hash de estado, garantizando que el agotamiento de PP produzca entradas distintas en la caché.
+
+---
+
 ## 🎮 Niveles de Dificultad e IA
 
 El simulador ofrece 4 niveles de dificultad bien definidos en `backend/config.py`:
@@ -138,6 +228,23 @@ El simulador ofrece 4 niveles de dificultad bien definidos en `backend/config.py
 | **2** | Competitivo | `medium` | `HeuristicAgent` | 1 | 60% - 70% | Oponente codicioso (*greedy*) de corto plazo. |
 | **3** | Experto | `hard` | `MinimaxAgent` | 4 | 35% - 45% | Búsqueda táctica profunda con pesos calibrados manualmente. |
 | **4** | Maestro | `sobrevilla` | `MinimaxAgent + GA` | 4 | 10% - 25% | Máximo desafío. Usa los pesos optimizados por el Algoritmo Genético. |
+
+### HeuristicAgent — lógica interna
+
+El `HeuristicAgent` (dificultad Media) evalúa **sin simular turnos futuros**: calcula un score para cada acción legal y elige la máxima.
+
+**Movimientos**: el score es el balance de HP esperado tras el golpe.
+$$\text{score\_move} = \text{HP\_total\_propio} - (\text{HP\_total\_rival} - \text{daño} \times \text{accuracy})$$
+
+**Switches**: el score añade tres componentes al balance de HP base.
+
+| Componente | Fórmula | Propósito |
+|---|---|---|
+| Ganancia de tipo | $(\text{best\_mult\_entrante} - 1.0) \times 30$ | Favorece al Pokémon con ventaja ofensiva sobre el rival activo |
+| Reducción de vulnerabilidad | $(\text{mult\_rival\_vs\_actual} - \text{mult\_rival\_vs\_entrante}) \times 20$ | Penaliza quedarse si el rival ya tiene ventaja de tipo sobre el activo |
+| Bonus de HP | $(\text{HP\_entrante} / \text{HP\_max}) \times 10$ | Prefiere traer Pokémon con más vida restante |
+
+Este diseño hace que el agente cambie voluntariamente cuando está en desventaja de tipo real, a diferencia de un greedy puro que siempre prefiere atacar.
 
 ---
 
@@ -183,21 +290,68 @@ Memoiza evaluaciones de estados visitados durante la búsqueda. Lo que evita no 
 ### Control de Ramificación (Top-K)
 Tras extraer las acciones críticas de la Fase 1, la exploración se completa con las $K = 6$ acciones mejor valoradas por `_quick_score()` de la Fase 2. El número efectivo de acciones exploradas puede **superar $K$** cuando existen acciones críticas (KOs, switches urgentes) que se fuerzan al frente independientemente del ranking. Esta distinción evita que el recorte elimine movimientos letales que podrían quedar al final del ranking heurístico. Con $K=6$ y $d=4$, el tiempo de respuesta se sitúa consistentemente por debajo de los 0.5 segundos por turno.
 
+### Modo Determinista del Simulador
+
+Durante la búsqueda Minimax, `simulate_turn()` se invoca con `deterministic=True`. En este modo, en lugar de muestrear la precisión del movimiento con una variable aleatoria (lo que haría el árbol no determinista y dependiente de la semilla), se usa directamente el **daño esperado**:
+
+$$\text{Daño\_sim} = \text{round}(\text{Daño} \times \text{accuracy})$$
+
+Esto garantiza que el mismo par (estado, acción) siempre produzca el mismo estado sucesor en el árbol, haciendo válida la búsqueda de Minimax de información perfecta. Sin este modo, dos ramas con el mismo movimiento podrían divergir por distinta suerte de precisión, invalidando la comparación de valores heurísticos. El motor de combate real sí muestrea la precisión de forma aleatoria — solo el simulador de lookahead opera en modo determinista.
+
+### Telemetría del Agente
+
+Tras cada llamada a `choose_action()`, el `MinimaxAgent` expone métricas de búsqueda en `last_choice_details`:
+
+| Campo | Descripción |
+|---|---|
+| `nodes_evaluated` | Nodos del árbol evaluados en esa decisión (heurística o terminal) |
+| `nodes_pruned` | Cortes alfa-beta realizados (ramas descartadas sin evaluar) |
+| `transposition_hits` | Veces que un estado fue encontrado en la caché y no se recomputó |
+| `time_taken` | Tiempo total de la búsqueda en segundos |
+
+Estos valores son los que leen los scripts `scripts/export_metrics.py` y `scripts/run_minimax_experiment.py` para comparar eficiencia entre profundidades, factor Top-K y presencia de tabla de transposición.
+
 ---
 
 ## 🧬 Optimización con Algoritmo Genético
 
 ### Función Heurística Compuesta
-La evaluación de las hojas del árbol se basa en una combinación lineal ponderada de 5 factores normalizados en el rango $[-1, 1]$ o $[-1, 0]$:
+La evaluación de las hojas del árbol se basa en una combinación lineal ponderada de 5 factores:
 
 $$h(s, i) = W_1 \cdot f_{\text{pokemon vivos}}(s, i) + W_2 \cdot f_{\text{ventaja tipo}}(s, i) + W_3 \cdot f_{\text{velocidad}}(s, i) + W_4 \cdot f_{\text{hp restante}}(s, i) + W_5 \cdot f_{\text{riesgo morir}}(s, i)$$
 
-*Donde:*
-- $f_{\text{pokemon vivos}}$: Ventaja numérica de Pokémon saludables.
-- $f_{\text{ventaja tipo}}$: Matchup elemental del Pokémon activo frente al rival.
-- $f_{\text{velocidad}}$: Diferencia relativa de velocidad entre los Pokémon activos, calculada como $\tanh\!\left(\frac{\text{speed}_{\text{propio}} - \text{speed}_{\text{rival}}}{100}\right)$. No es una señal binaria de "quien ataca primero" (eso sería discontinuo), sino un proxy continuo de dominancia de velocidad comparativa. La velocidad ya actúa como factor de mitigación defensiva en la fórmula de daño; este factor captura su dimensión táctica residual.
-- $f_{\text{hp restante}}$: Proporción de vida acumulada del equipo.
-- $f_{\text{riesgo morir}}$: Penalización prospectiva si el Pokémon activo morirá en el siguiente turno.
+**Detalle de cada factor, su fórmula de normalización y rango:**
+
+**$f_{\text{pokemon vivos}}$** — Ventaja numérica de Pokémon saludables.
+$$f_1 = \frac{\text{vivos\_propio} - \text{vivos\_rival}}{\text{team\_size}} \quad \in [-1,\ 1]$$
+
+**$f_{\text{ventaja tipo}}$** — Matchup elemental del activo propio vs el rival activo. Toma el mejor multiplicador de tipo entre los movimientos de cada Pokémon, luego normaliza la diferencia. El clip es necesario porque con Pokémon de tipos duales los multiplicadores pueden llegar a 4×, haciendo que el valor crudo supere 1.0.
+$$f_2 = \text{clip}\!\left(\frac{\text{best\_mult\_own} - \text{best\_mult\_opp}}{2},\ -1,\ 1\right) \quad \in [-1,\ 1]$$
+
+**$f_{\text{velocidad}}$** — Diferencia relativa de velocidad entre los activos. Proxy continuo de dominancia táctica de velocidad (no binario). La velocidad ya reduce el daño recibido en la fórmula de daño; este factor captura su dimensión estratégica residual.
+$$f_3 = \tanh\!\left(\frac{\text{speed\_propio} - \text{speed\_rival}}{100}\right) \quad \in (-1,\ 1)$$
+
+**$f_{\text{hp restante}}$** — Ventaja de HP acumulado del equipo propio vs el rival. Cada ratio es HP\_actual / HP\_max sumado por todos los Pokémon del equipo.
+$$f_4 = \text{ratio\_hp\_propio} - \text{ratio\_hp\_rival} \quad \in [-1,\ 1]$$
+
+**$f_{\text{riesgo morir}}$** — Función de riesgo continua, no binaria. Calcula si el Pokémon activo puede ser KOado por el mejor movimiento del rival (daño esperado = daño × accuracy). La penalización escala linealmente entre los extremos y se agrava si el rival es más rápido (ataca primero).
+$$\text{riesgo} = \begin{cases} 1.0 & \text{si } \text{hp} \leq \text{dmg\_max} \\ 0.0 & \text{si } \text{hp} \geq 2 \times \text{dmg\_max} \\ 1 - \dfrac{\text{hp} - \text{dmg\_max}}{\text{dmg\_max}} & \text{en otro caso} \end{cases}$$
+$$\text{si rival es más rápido:}\quad \text{riesgo} \leftarrow \min(1.0,\ \text{riesgo} \times 1.5)$$
+$$f_5 = -\text{riesgo} \quad \in [-1,\ 0]$$
+
+**Escala de pesos y valores terminales:**
+
+Los pesos manuales `MANUAL_WEIGHTS = [0.25, 0.35, 0.05, 0.20, 0.15]` suman 1.0, acotando $h \in [-1, 1]$. La elección de cada valor responde a una justificación táctica:
+
+| Peso | Factor | Valor | Razonamiento |
+|:---:|---|:---:|---|
+| $W_1$ | Pokémon vivos | 0.25 | Ventaja numérica importante pero su señal cambia de golpe (±1/team\_size), no gradualmente |
+| $W_2$ | Ventaja de tipo | 0.35 | El matchup elemental es la decisión táctica más determinante en PokeFISI — justifica el peso más alto |
+| $W_3$ | Velocidad | 0.05 | La velocidad ya penaliza el daño recibido en la fórmula de daño; su información táctica residual es mínima |
+| $W_4$ | HP restante | 0.20 | Mide la resistencia global del equipo; señal continua y gradual, segundo factor más informativo |
+| $W_5$ | Riesgo de morir | 0.15 | Urgencia táctica — captura peligro inmediato no completamente reflejado en el HP ratio |
+
+Los pesos del AG se optimizan en $[0, 1]$ por componente **sin restricción de suma**, por lo que la escala del resultado puede variar entre individuos. Esto no afecta la correctitud del Minimax porque los estados terminales devuelven $\pm 1000$, valor que domina cualquier evaluación heurística independientemente de la escala de pesos, garantizando que ganar siempre supere cualquier ventaja parcial de tablero.
 
 ### Función de Fitness
 El algoritmo evalúa a cada individuo (un vector de pesos $W \in \mathbb{R}^5$) haciéndolo combatir $N$ veces contra el `HeuristicAgent` como oponente de referencia. El `HeuristicAgent` no simula turnos futuros: evalúa cada movimiento por su daño esperado y cada switch por una combinación de ventaja de tipo del entrante, reducción de vulnerabilidad del activo actual y HP ratio del entrante — lo que le permite cambiar voluntariamente ante desventajas de tipo reales sin ningún lookahead.
@@ -206,6 +360,8 @@ $$\text{Fitness}(W) = (\text{WinRate} \times 0.7) + (\text{MarginScore} \times 0
 
 - **$\text{WinRate}$**: Porcentaje de victorias obtenidas ($[0, 100]$).
 - **$\text{MarginScore}$**: Promedio normalizado de la diferencia de Pokémon supervivientes al finalizar el encuentro ($[-100, 100]$).
+
+El ratio 70/30 refleja que **ganar es el objetivo primario** — un individuo que pierde casi siempre no mejora aunque lo haga con margen ajustado. Sin embargo, un fitness puramente binario (solo win rate) otorgaría la misma puntuación a una victoria aplastante y a una victoria con 1 Pokémon restante, eliminando la señal de gradiente que el AG necesita para distinguir pesos buenos de pesos mediocres dentro de los ganadores. El `MarginScore` resuelve este empate y acelera la convergencia.
 
 ### Operadores Evolutivos
 - **Inicialización**: La población combina diversidad y calidad inicial. El primer individuo es el vector `MANUAL_WEIGHTS` (semilla experta); los 3 siguientes son variaciones gaussianas cercanas ($\sigma=0.05$) del mismo vector; el resto son vectores uniformes aleatorios en $[0,1]^5$. Esta estrategia de *seeding* reduce la exploración ciega inicial y acelera la convergencia sin sacrificar diversidad.
@@ -318,10 +474,25 @@ En la carpeta `scripts/` se ubican utilidades clave para probar, entrenar y comp
   python scripts/run_minimax_experiment.py --battles 30 --depth 2
   ```
 
-- **Ejecución de Tests Unitarios**:
+- **Ejecución de Tests**:
   ```bash
   pytest
   ```
+  El suite cubre tres módulos con garantías tanto de correctitud como de comportamiento táctico:
+
+  | Módulo | Qué verifica |
+  |--------|-------------|
+  | `tests/test_battle/test_damage.py` | Fórmula de daño, TypeModifier, mínimo garantizado de 1 |
+  | `tests/test_battle/test_stats.py` | Fórmula de HP Gen 3 con IV/EV/Level fijos |
+  | `tests/test_heuristics/test_heuristics.py` | Rango y monotonía de cada $f_i$ |
+  | `tests/test_agents/test_minimax.py` | Correctitud y comportamiento táctico del agente |
+
+  Los tests de Minimax incluyen **escenarios tácticos concretos** con nombres de Pokémon reales:
+  - `test_does_not_modify_state` — el árbol de búsqueda nunca corrompe el estado de la partida real.
+  - `test_deterministic_simulation_ignores_rng_sampling` — dos semillas distintas producen el mismo resultado en modo determinista.
+  - `test_critical_knockout_action_is_kept_when_top_k_is_zero` — los KOs inmediatos nunca son eliminados por el recorte top-K.
+  - `test_forced_switch_prefers_best_evaluated_replacement` — los cambios forzados usan la heurística para elegir el mejor sustituto.
+  - `test_does_not_switch_sandshrew_into_meowth_against_brick_break` — escenario con Pokémon y movimientos reales que verifica que el agente evita un switch suicida.
 
 ---
 
